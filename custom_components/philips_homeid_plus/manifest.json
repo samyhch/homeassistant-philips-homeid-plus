@@ -1,0 +1,38 @@
+{
+  "domain": "philips_homeid_plus",
+  "name": "Philips HomeID Plus",
+  "codeowners": [
+    "@samyhch"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "websocket_api",
+    "frontend"
+  ],
+  "documentation": "https://github.com/samyhch/homeassistant-philips-homeid-plus",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/samyhch/homeassistant-philips-homeid-plus/issues",
+  "requirements": [
+    "petsseries==1.1.0",
+    "tuya-mobile==1.2.0",
+    "aioairctrl==0.3.1",
+    "getmac>=0.9.4"
+  ],
+  "ssdp": [
+    {
+      "st": "urn:philips-com:device:DiProduct:1"
+    }
+  ],
+  "version": "0.1.0",
+  "zeroconf": [
+    {
+      "type": "_philipscondor._tcp.local."
+    },
+    {
+      "type": "_http._tcp.local.",
+      "name": "philips_*"
+    }
+  ]
+}

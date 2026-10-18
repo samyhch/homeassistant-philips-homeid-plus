@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.venv/
+venv/
+.idea/
+.vscode/
+*.log
+*.tar.gz
+*.zip
+*.apk
+*.apkm
+.env
+.env.*

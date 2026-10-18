@@ -1,0 +1,748 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "添加飞利浦设备",
+        "description": "选择设备的设置方式。为网络中的设备输入本地 IP 地址，或使用飞利浦账号登录以设置没有本地连接的云中继 (FUSION) 设备。",
+        "menu_options": {
+          "manual_host": "通过 IP 地址设置本地设备",
+          "cloud_email": "使用飞利浦账号登录（云中继 / FUSION 设备）"
+        }
+      },
+      "manual_host": {
+        "title": "输入设备IP",
+        "description": "输入已连接到网络的飞利浦设备IP地址。",
+        "data": {
+          "host": "IP地址",
+          "model": "设备型号"
+        }
+      },
+      "cloud_email": {
+        "title": "飞利浦账号登录",
+        "description": "输入您的飞利浦 HomeID 账号邮箱，验证码将发送到此地址。",
+        "data": {
+          "email": "邮箱",
+          "manual_entry": "手动输入凭据"
+        }
+      },
+      "cloud_otp": {
+        "title": "输入验证码",
+        "description": "验证码已发送至 {email}。",
+        "data": {
+          "code": "验证码"
+        }
+      },
+      "cloud_devices": {
+        "title": "选择设备",
+        "description": "选择要添加的设备。",
+        "data": {
+          "device": "设备"
+        }
+      },
+      "confirm": {
+        "title": "确认设备",
+        "description": "添加 {name}（{host}）？\n\n型号：{model}"
+      },
+      "zeroconf_confirm": {
+        "title": "发现飞利浦设备",
+        "description": "在网络上发现飞利浦设备：\n\n**{name}**\nIP：{host}\n型号：{model}"
+      },
+      "ssdp_confirm": {
+        "title": "发现飞利浦设备",
+        "description": "在网络上发现飞利浦设备：\n\n**{name}**\nIP：{host}\n型号：{model}"
+      },
+      "manual_credentials": {
+        "title": "{name} 凭据",
+        "description": "输入从 HomeID 应用提取的凭据。",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "加密密钥（HTTP设备需要）"
+        }
+      },
+      "reauth_email": {
+        "title": "需要云登录",
+        "description": "需要云登录以重新连接此设备。请输入您的 Philips HomeID 电子邮件。",
+        "data": {
+          "email": "电子邮件"
+        }
+      },
+      "reauth_otp": {
+        "title": "输入验证码",
+        "description": "验证码已发送至 {email}",
+        "data": {
+          "code": "验证码"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接到设备",
+      "missing_credentials": "需要 Client ID 和 Client Secret",
+      "invalid_credentials": "凭据无效",
+      "encryption_key_failed": "无法获取加密密钥",
+      "unknown": "未知错误",
+      "missing_email": "请输入邮箱",
+      "missing_code": "请输入验证码",
+      "otp_send_failed": "发送验证码失败",
+      "otp_failed": "验证码无效",
+      "account_not_registered": "此电子邮件不是完整注册的 Philips HomeID 账户。请使用此电子邮件在 Philips HomeID 应用中登录一次，然后重试，或者重新开始并手动输入凭据。",
+      "no_cloud_devices": "未找到设备",
+      "cloud_credentials_not_found": "无法从云端获取凭据",
+      "cloud_no_ip": "IP地址不可用",
+      "cloud_oauth_failed": "云端身份验证失败。请查看 Home Assistant 日志了解详情。您也可以手动输入凭据。",
+      "cloud_unreachable": "Philips 云服务暂时无法访问，请稍后再试。",
+      "cloud_profile_error": "Philips HomeID 服务器针对你的账户返回了服务器错误。请打开 Philips HomeID 应用，即使设备仍然显示，也请先删除该设备并重新配对，然后再试一次。该错误也可能是暂时的，可以等几分钟后重试。",
+      "invalid_host": "请仅输入 IP 地址或主机名（不要包含协议、端口或路径）。"
+    },
+    "abort": {
+      "already_configured": "设备已配置",
+      "already_in_progress": "配置流程已在进行中",
+      "cannot_connect": "无法连接",
+      "unsupported_device": "此 Philips 设备不受此集成支持，已被忽略。",
+      "reauth_successful": "云登录成功。",
+      "reauth_entry_missing": "找不到要重新认证的集成条目。请重新加载 Home Assistant 后再试。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "轮询间隔（秒）",
+          "active_scan_interval": "烹饪时轮询间隔（秒）"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "室内空气指数"
+      },
+      "tvoc": {
+        "name": "总挥发性有机物"
+      },
+      "gas": {
+        "name": "气体浓度"
+      },
+      "allergen_index": {
+        "name": "过敏原指数"
+      },
+      "humidity": {
+        "name": "湿度"
+      },
+      "temperature": {
+        "name": "温度"
+      },
+      "filter_pre": {
+        "name": "预过滤器"
+      },
+      "filter_hepa": {
+        "name": "HEPA过滤器"
+      },
+      "filter_carbon": {
+        "name": "活性炭过滤器"
+      },
+      "filter_wick": {
+        "name": "加湿滤芯"
+      },
+      "water_level": {
+        "name": "水位"
+      },
+      "display_brightness": {
+        "name": "显示亮度"
+      },
+      "runtime": {
+        "name": "总运行时间"
+      },
+      "mode": {
+        "name": "模式"
+      },
+      "fan_speed": {
+        "name": "风速"
+      },
+      "error_code": {
+        "name": "错误代码"
+      },
+      "muji_filter0_lifetime": {
+        "name": "滤芯清洁寿命"
+      },
+      "muji_filter1_lifetime": {
+        "name": "滤芯更换寿命"
+      },
+      "muji_filter0_remaining": {
+        "name": "滤芯清洁剩余"
+      },
+      "muji_filter1_remaining": {
+        "name": "滤芯更换剩余"
+      },
+      "airfryer_status": {
+        "name": "烹饪状态",
+        "state": {
+          "standby": "待机",
+          "idle": "空闲",
+          "setting": "设置中",
+          "cooking": "烹饪中",
+          "pause": "已暂停",
+          "finish": "已完成",
+          "pairing": "配对中",
+          "precook": "准备中",
+          "parasetting": "调整设置中",
+          "maintain": "保温中",
+          "user_action": "需要操作",
+          "powersave": "节能模式",
+          "mainmenu": "主菜单"
+        }
+      },
+      "airfryer_temperature": {
+        "name": "目标温度"
+      },
+      "airfryer_current_temperature": {
+        "name": "当前温度"
+      },
+      "airfryer_time_total": {
+        "name": "总时间"
+      },
+      "airfryer_time_remaining": {
+        "name": "剩余时间"
+      },
+      "airfryer_preset": {
+        "name": "预设"
+      },
+      "airfryer_recipe_name": {
+        "name": "食谱"
+      },
+      "airfryer_error": {
+        "name": "错误代码"
+      },
+      "airfryer_preheat_status": {
+        "name": "预热状态"
+      },
+      "airfryer_keep_warm": {
+        "name": "保温"
+      },
+      "airfryer_recipe_id": {
+        "name": "食谱ID"
+      },
+      "airfryer_step_id": {
+        "name": "步骤ID"
+      },
+      "airfryer_airspeed": {
+        "name": "风速"
+      },
+      "airfryer_probe_temperature": {
+        "name": "探针温度"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "当前探针温度"
+      },
+      "airfryer_dialog": {
+        "name": "对话框",
+        "state": {
+          "none": "无",
+          "close_drawer": "请关上抽屉"
+        }
+      },
+      "airfryer_previous_status": {
+        "name": "上一状态",
+        "state": {
+          "standby": "待机",
+          "idle": "空闲",
+          "setting": "设置中",
+          "cooking": "烹饪中",
+          "pause": "已暂停",
+          "finish": "已完成",
+          "pairing": "配对中",
+          "precook": "准备中",
+          "parasetting": "调整设置中",
+          "maintain": "保温中",
+          "user_action": "需要操作",
+          "powersave": "节能模式",
+          "mainmenu": "主菜单"
+        }
+      },
+      "airfryer_cooking_id": {
+        "name": "烹饪ID"
+      },
+      "airfryer_current_stage": {
+        "name": "当前阶段"
+      },
+      "airfryer_voltage": {
+        "name": "电压"
+      },
+      "airfryer_left_status": {
+        "name": "左篮状态"
+      },
+      "airfryer_left_temperature": {
+        "name": "左篮温度"
+      },
+      "airfryer_left_time": {
+        "name": "左篮时间"
+      },
+      "airfryer_right_status": {
+        "name": "右篮状态"
+      },
+      "airfryer_right_temperature": {
+        "name": "右篮温度"
+      },
+      "airfryer_right_time": {
+        "name": "右篮时间"
+      },
+      "multicooker_humidity": {
+        "name": "湿度"
+      },
+      "multicooker_ingredient": {
+        "name": "食材"
+      },
+      "autocook_uuid": {
+        "name": "自动烹饪程序"
+      },
+      "autocook_doneness": {
+        "name": "熟度"
+      },
+      "autocook_amount": {
+        "name": "数量"
+      },
+      "autocook_weight": {
+        "name": "重量"
+      },
+      "autocook_thickness": {
+        "name": "厚度"
+      },
+      "recipe_current_stage": {
+        "name": "食谱当前阶段"
+      },
+      "firmware_version": {
+        "name": "固件版本"
+      },
+      "firmware_available": {
+        "name": "可用固件"
+      },
+      "espresso_mainstate": {
+        "name": "机器状态",
+        "state": {
+          "undefined": "未定义",
+          "standby": "待机",
+          "ready": "就绪",
+          "brewing": "冲煮中",
+          "processing": "处理中",
+          "action_required": "需要操作",
+          "error": "错误",
+          "suspended": "已暂停",
+          "unknown": "未知",
+          "out_of_order": "故障"
+        }
+      },
+      "espresso_brewing_progress": {
+        "name": "冲泡进度"
+      },
+      "espresso_water_level": {
+        "name": "水位"
+      },
+      "espresso_descale_status": {
+        "name": "除垢状态"
+      },
+      "espresso_filter_status": {
+        "name": "滤芯状态"
+      },
+      "espresso_filter_number": {
+        "name": "滤芯编号"
+      },
+      "espresso_waste_bean": {
+        "name": "咖啡渣盒"
+      },
+      "espresso_switch_state": {
+        "name": "开关状态"
+      },
+      "espresso_last_error": {
+        "name": "最近错误"
+      },
+      "espresso_active_user": {
+        "name": "当前用户"
+      },
+      "espresso_water_hardness": {
+        "name": "水硬度"
+      },
+      "espresso_auto_standby_time": {
+        "name": "自动待机时间"
+      },
+      "rita_machine_state": {
+        "name": "机器状态",
+        "state": {
+          "not_used": "未使用",
+          "brewing": "冲煮中",
+          "action_required": "需要操作",
+          "unrecoverable_error": "不可恢复的错误"
+        }
+      },
+      "rita_machine_status": {
+        "name": "运行状态",
+        "state": {
+          "not_used": "未使用",
+          "running": "运行中",
+          "suspended_alarm": "因报警暂停",
+          "suspended_resumable": "已暂停，可继续",
+          "finishing_successfully": "正在正常结束",
+          "finishing_unsuccessfully": "正在异常结束"
+        }
+      },
+      "rita_machine_extra_info": {
+        "name": "附加信息",
+        "state": {
+          "not_used": "未使用",
+          "bean_lack": "缺少咖啡豆",
+          "water_lack": "缺水",
+          "ground_container_full": "咖啡渣盒已满",
+          "brew_unit_missing": "冲煮组缺失",
+          "water_container_should_be_removed": "请取下水箱",
+          "drip_tray_removed": "滴水盘已取出",
+          "door_open": "门已打开",
+          "ground_container_removed": "咖啡渣盒已取出",
+          "masterpiece_alarm": "Masterpiece 报警",
+          "user_abort_or_suspend_timeout": "用户中止或暂停超时",
+          "brew_abort_refill_required": "冲煮中止，需要加注",
+          "brew_abort_heater_fail": "冲煮中止，加热器故障",
+          "brew_abort_bu_fail": "冲煮中止，冲煮组故障",
+          "brew_abort_grinder_fail": "冲煮中止，研磨器故障",
+          "error_1": "错误 1",
+          "error_2": "错误 2",
+          "error_3": "错误 3",
+          "error_4": "错误 4",
+          "error_5": "错误 5",
+          "error_10": "错误 10",
+          "error_11": "错误 11",
+          "error_14": "错误 14",
+          "error_15": "错误 15",
+          "error_19": "错误 19",
+          "error_24": "错误 24"
+        }
+      },
+      "rita_control_status": {
+        "name": "控制状态",
+        "state": {
+          "machine_notification": "机器通知",
+          "no_error": "无错误",
+          "invalid_command": "无效命令",
+          "non_existent_or_invalid_recipe": "配方不存在或无效",
+          "machine_busy": "机器忙",
+          "machine_in_alarm_or_error_state": "机器处于报警或错误状态",
+          "profiles_full": "档案已满",
+          "unavailable_color": "颜色不可用",
+          "invalid_profile_name": "无效的档案名称",
+          "no_recipe_selected": "未选择配方",
+          "recipes_full": "配方已满",
+          "invalid_recipe_name": "无效的配方名称",
+          "invalid_profile_id": "无效的档案 ID",
+          "invalid_profile_order": "无效的档案顺序",
+          "invalid_barista_assistant_settings": "无效的 Barista Assistant 设置"
+        }
+      },
+      "rita_bean_type": {
+        "name": "咖啡豆种类",
+        "state": {
+          "arabica": "阿拉比卡",
+          "mix": "混合",
+          "other": "其他"
+        }
+      },
+      "rita_roast_level": {
+        "name": "烘焙程度",
+        "state": {
+          "light": "浅",
+          "medium": "中",
+          "dark": "深"
+        }
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "AquaClean 滤芯编号"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "AquaClean 剩余量"
+      },
+      "rita_descale_autonomy": {
+        "name": "除垢剩余量"
+      },
+      "rita_coffee_autonomy": {
+        "name": "咖啡剩余量"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "冲煮组剩余量"
+      },
+      "ncp_firmware_version": {
+        "name": "NCP 固件版本"
+      },
+      "host_firmware_version": {
+        "name": "主机固件版本"
+      },
+      "product_error": {
+        "name": "产品错误"
+      },
+      "ota_state": {
+        "name": "固件更新状态",
+        "state": {
+          "no_download": "无下载",
+          "ncp_download_in_progress": "正在下载 NCP 固件",
+          "host_download_in_progress": "正在下载主机固件",
+          "host_download_paused": "主机固件下载已暂停",
+          "ncp_validating": "正在验证 NCP 固件",
+          "host_validating": "正在验证主机固件"
+        }
+      },
+      "device_name": {
+        "name": "设备名称"
+      },
+      "device_serial": {
+        "name": "序列号"
+      },
+      "device_ctn": {
+        "name": "型号"
+      },
+      "espresso_bean_level": {
+        "name": "咖啡豆余量"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "需要更换滤芯"
+      },
+      "water_tank_empty": {
+        "name": "水箱空"
+      },
+      "airfryer_drawer_open": {
+        "name": "抽屉"
+      },
+      "airfryer_shake_reminder": {
+        "name": "摇晃提醒"
+      },
+      "airfryer_flip_reminder": {
+        "name": "翻转提醒"
+      },
+      "airfryer_preheat_active": {
+        "name": "预热中"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "探针未连接"
+      },
+      "airfryer_probe_required": {
+        "name": "需要探针"
+      },
+      "airfryer_resting": {
+        "name": "静置中"
+      },
+      "multicooker_lid_open": {
+        "name": "锅盖"
+      },
+      "multicooker_no_water": {
+        "name": "缺水"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "左抽屉"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "右抽屉"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "华氏温度"
+      },
+      "firmware_update_available": {
+        "name": "固件更新可用"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "开始烹饪"
+      },
+      "airfryer_pause": {
+        "name": "暂停"
+      },
+      "airfryer_stop": {
+        "name": "停止"
+      },
+      "airfryer_keep_warm": {
+        "name": "保温"
+      },
+      "airfryer_refresh_recipe": {
+        "name": "刷新食谱"
+      },
+      "rita_brew": {
+        "name": "冲煮已保存配方"
+      },
+      "rita_brew_builtin": {
+        "name": "冲煮内置饮品"
+      },
+      "rita_abort_brew": {
+        "name": "中止冲煮"
+      },
+      "rita_resume_brew": {
+        "name": "继续冲煮"
+      },
+      "rita_skip_step": {
+        "name": "跳过步骤"
+      },
+      "rita_brew_hot_water": {
+        "name": "热水"
+      },
+      "airfryer_autocook_send": {
+        "name": "发送 AutoCook 程序"
+      },
+      "espresso_brew_coffee": {
+        "name": "冲煮咖啡"
+      },
+      "espresso_brew_espresso": {
+        "name": "冲煮浓缩咖啡"
+      },
+      "muji_reset_filter_clean": {
+        "name": "重置滤芯清洁计时"
+      },
+      "muji_reset_filter_replace": {
+        "name": "重置滤芯更换计时"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "设置温度"
+      },
+      "airfryer_set_time": {
+        "name": "设置时间"
+      },
+      "airfryer_set_airspeed": {
+        "name": "设置风速"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "设置探针温度"
+      },
+      "set_beep_volume": {
+        "name": "提示音量"
+      },
+      "set_air_quality_threshold": {
+        "name": "空气质量阈值"
+      },
+      "set_keep_warm_time": {
+        "name": "保温时长"
+      },
+      "set_keep_warm_temp": {
+        "name": "保温温度"
+      },
+      "espresso_grinder_dose": {
+        "name": "研磨量"
+      },
+      "espresso_brew_temperature": {
+        "name": "冲泡温度"
+      },
+      "espresso_brew_count": {
+        "name": "冲泡杯数"
+      },
+      "espresso_primary_dose": {
+        "name": "主剂量"
+      },
+      "espresso_secondary_dose": {
+        "name": "副剂量"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "烹饪方式",
+        "state": {
+          "manual": "手动",
+          "frozen_snacks": "冷冻零食",
+          "fresh_fries": "新鲜薯条",
+          "chicken": "鸡肉",
+          "fish": "鱼",
+          "muffins_cake": "松饼/蛋糕",
+          "meat_chops": "肉排",
+          "vegetables": "蔬菜",
+          "keep_warm": "保温",
+          "auto_cook": "自动烹饪",
+          "recipe": "食谱",
+          "no_selection": "无选择",
+          "air_steam": "空气蒸",
+          "steaming": "蒸",
+          "roast": "烤",
+          "bake": "烘焙",
+          "slow_cook": "慢炖",
+          "defrost": "解冻",
+          "reheat": "加热",
+          "sous_vide": "低温慢煮",
+          "air_steam_pro": "空气蒸 Pro",
+          "stew": "炖",
+          "user_preset": "自定义",
+          "easy_clean": "简易清洁"
+        }
+      },
+      "my_preset": {
+        "name": "我的预设"
+      },
+      "rita_roast_level_select": {
+        "name": "烘焙程度",
+        "state": {
+          "light": "浅",
+          "medium": "中",
+          "dark": "深"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "咖啡豆种类",
+        "state": {
+          "arabica": "阿拉比卡",
+          "mix": "混合",
+          "other": "其他"
+        }
+      },
+      "rita_brew_profile_select": {
+        "name": "冲煮配置文件"
+      },
+      "rita_brew_recipe_select": {
+        "name": "已保存配方"
+      },
+      "rita_builtin_drink_select": {
+        "name": "内置饮品"
+      },
+      "autocook_program": {
+        "name": "AutoCook 程序"
+      },
+      "operation_mode": {
+        "name": "运行模式",
+        "state": {
+          "auto": "自动",
+          "gentle": "轻柔",
+          "medium": "中档",
+          "fast": "快速",
+          "sleep": "睡眠",
+          "turbo": "强劲"
+        }
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "童锁"
+      },
+      "preheat": {
+        "name": "预热"
+      },
+      "sensor_monitor_standby": {
+        "name": "待机传感器监控"
+      },
+      "power": {
+        "name": "电源"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "固件"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "空气净化器"
+      }
+    }
+  }
+}

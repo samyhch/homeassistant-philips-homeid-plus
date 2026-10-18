@@ -1,0 +1,40 @@
+name: Bug report
+description: Report a reproducible problem in Philips HomeID Plus
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I removed passwords, tokens, serial numbers, device IDs, IP addresses, and other personal data.
+          required: true
+  - type: input
+    attributes:
+      label: Integration version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Home Assistant version
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Device model
+      placeholder: PAW5320/02, AC3360/11, etc.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Describe the expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Redacted logs
+      render: text

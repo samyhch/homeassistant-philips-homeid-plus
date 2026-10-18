@@ -1,0 +1,748 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "필립스 기기 추가",
+        "description": "기기를 설정할 방법을 선택하세요. 네트워크에 있는 기기는 로컬 IP 주소를 입력하고, 로컬 연결이 없는 클라우드 릴레이(FUSION) 기기는 필립스 계정으로 로그인하세요.",
+        "menu_options": {
+          "manual_host": "IP 주소로 로컬 기기 설정",
+          "cloud_email": "필립스 계정으로 로그인 (클라우드 릴레이 / FUSION 기기)"
+        }
+      },
+      "manual_host": {
+        "title": "기기 IP 입력",
+        "description": "네트워크에 연결된 필립스 기기의 IP 주소를 입력하세요.",
+        "data": {
+          "host": "IP 주소",
+          "model": "기기 모델"
+        }
+      },
+      "cloud_email": {
+        "title": "필립스 계정 로그인",
+        "description": "필립스 HomeID 계정 이메일을 입력하세요.",
+        "data": {
+          "email": "이메일",
+          "manual_entry": "수동으로 자격 증명 입력"
+        }
+      },
+      "cloud_otp": {
+        "title": "인증 코드 입력",
+        "description": "{email}로 인증 코드가 전송되었습니다.",
+        "data": {
+          "code": "인증 코드"
+        }
+      },
+      "cloud_devices": {
+        "title": "기기 선택",
+        "description": "추가할 기기를 선택하세요.",
+        "data": {
+          "device": "기기"
+        }
+      },
+      "confirm": {
+        "title": "기기 확인",
+        "description": "{host}의 {name}을(를) 추가하시겠습니까?\n\n모델: {model}"
+      },
+      "zeroconf_confirm": {
+        "title": "필립스 기기 발견",
+        "description": "네트워크에서 필립스 기기가 발견되었습니다:\n\n**{name}**\nIP: {host}\n모델: {model}"
+      },
+      "ssdp_confirm": {
+        "title": "필립스 기기 발견",
+        "description": "네트워크에서 필립스 기기가 발견되었습니다:\n\n**{name}**\nIP: {host}\n모델: {model}"
+      },
+      "manual_credentials": {
+        "title": "{name} 자격 증명",
+        "description": "HomeID 앱에서 추출한 자격 증명을 입력하세요.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "암호화 키"
+        }
+      },
+      "reauth_email": {
+        "title": "클라우드 로그인 필요",
+        "description": "이 기기를 다시 연결하려면 클라우드 로그인이 필요합니다. Philips HomeID 이메일을 입력하세요.",
+        "data": {
+          "email": "이메일"
+        }
+      },
+      "reauth_otp": {
+        "title": "인증 코드 입력",
+        "description": "{email}로 인증 코드가 전송되었습니다",
+        "data": {
+          "code": "인증 코드"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "기기에 연결할 수 없습니다",
+      "missing_credentials": "Client ID와 Client Secret이 필요합니다",
+      "invalid_credentials": "자격 증명이 유효하지 않습니다",
+      "encryption_key_failed": "암호화 키를 가져올 수 없습니다",
+      "unknown": "예기치 않은 오류",
+      "missing_email": "이메일을 입력하세요",
+      "missing_code": "인증 코드를 입력하세요",
+      "otp_send_failed": "인증 코드 전송 실패",
+      "otp_failed": "인증 코드가 유효하지 않습니다",
+      "account_not_registered": "이 이메일은 완전히 등록된 Philips HomeID 계정이 아닙니다. 이 이메일로 Philips HomeID 앱에 한 번 로그인한 후 다시 시도하거나, 처음부터 다시 시작하여 자격 증명을 수동으로 입력하세요.",
+      "no_cloud_devices": "기기를 찾을 수 없습니다",
+      "cloud_credentials_not_found": "클라우드에서 자격 증명을 가져올 수 없습니다",
+      "cloud_no_ip": "IP 주소를 사용할 수 없습니다",
+      "cloud_oauth_failed": "클라우드 인증에 실패했습니다. 자세한 내용은 Home Assistant 로그를 확인하세요. 자격 증명을 수동으로 입력할 수도 있습니다.",
+      "cloud_unreachable": "Philips 클라우드에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      "cloud_profile_error": "Philips HomeID 서버가 계정에 대해 서버 오류를 반환했습니다. Philips HomeID 앱에서 기기가 아직 표시되더라도 기기를 삭제한 후 다시 등록하고 재시도하세요. 일시적인 오류일 수도 있으므로 몇 분 뒤에 다시 시도해 보세요.",
+      "invalid_host": "스키마, 포트, 경로 없이 IP 주소 또는 호스트 이름만 입력하세요."
+    },
+    "abort": {
+      "already_configured": "이미 구성된 기기",
+      "already_in_progress": "기기 구성이 이미 진행 중입니다",
+      "cannot_connect": "연결 불가",
+      "unsupported_device": "이 Philips 기기는 이 통합에서 지원되지 않아 무시되었습니다.",
+      "reauth_successful": "클라우드 로그인 성공.",
+      "reauth_entry_missing": "재인증할 통합 항목을 찾을 수 없습니다. Home Assistant를 다시 로드한 후 다시 시도해 주세요."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "폴링 간격 (초)",
+          "active_scan_interval": "조리 중 폴링 간격 (초)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "실내 공기 지수"
+      },
+      "tvoc": {
+        "name": "총 VOC"
+      },
+      "gas": {
+        "name": "가스 농도"
+      },
+      "allergen_index": {
+        "name": "알레르겐 지수"
+      },
+      "humidity": {
+        "name": "습도"
+      },
+      "temperature": {
+        "name": "온도"
+      },
+      "filter_pre": {
+        "name": "프리필터"
+      },
+      "filter_hepa": {
+        "name": "HEPA 필터"
+      },
+      "filter_carbon": {
+        "name": "탄소 필터"
+      },
+      "filter_wick": {
+        "name": "가습 필터"
+      },
+      "water_level": {
+        "name": "수위"
+      },
+      "display_brightness": {
+        "name": "화면 밝기"
+      },
+      "runtime": {
+        "name": "총 가동 시간"
+      },
+      "mode": {
+        "name": "모드"
+      },
+      "fan_speed": {
+        "name": "팬 속도"
+      },
+      "error_code": {
+        "name": "오류 코드"
+      },
+      "muji_filter0_lifetime": {
+        "name": "필터 청소 수명"
+      },
+      "muji_filter1_lifetime": {
+        "name": "필터 교체 수명"
+      },
+      "muji_filter0_remaining": {
+        "name": "필터 청소 잔여"
+      },
+      "muji_filter1_remaining": {
+        "name": "필터 교체 잔여"
+      },
+      "airfryer_status": {
+        "name": "조리 상태",
+        "state": {
+          "standby": "대기",
+          "idle": "유휴",
+          "setting": "설정 중",
+          "cooking": "조리 중",
+          "pause": "일시정지됨",
+          "finish": "완료",
+          "pairing": "페어링 중",
+          "precook": "준비 중",
+          "parasetting": "설정 변경 중",
+          "maintain": "보온 중",
+          "user_action": "조치 필요",
+          "powersave": "절전 모드",
+          "mainmenu": "메인 메뉴"
+        }
+      },
+      "airfryer_temperature": {
+        "name": "목표 온도"
+      },
+      "airfryer_current_temperature": {
+        "name": "현재 온도"
+      },
+      "airfryer_time_total": {
+        "name": "총 시간"
+      },
+      "airfryer_time_remaining": {
+        "name": "남은 시간"
+      },
+      "airfryer_preset": {
+        "name": "프리셋"
+      },
+      "airfryer_recipe_name": {
+        "name": "레시피"
+      },
+      "airfryer_error": {
+        "name": "오류 코드"
+      },
+      "airfryer_preheat_status": {
+        "name": "예열 상태"
+      },
+      "airfryer_keep_warm": {
+        "name": "보온"
+      },
+      "airfryer_recipe_id": {
+        "name": "레시피 ID"
+      },
+      "airfryer_step_id": {
+        "name": "단계 ID"
+      },
+      "airfryer_airspeed": {
+        "name": "풍속"
+      },
+      "airfryer_probe_temperature": {
+        "name": "프로브 온도"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "현재 프로브 온도"
+      },
+      "airfryer_dialog": {
+        "name": "대화상자",
+        "state": {
+          "none": "없음",
+          "close_drawer": "서랍을 닫으세요"
+        }
+      },
+      "airfryer_previous_status": {
+        "name": "이전 상태",
+        "state": {
+          "standby": "대기",
+          "idle": "유휴",
+          "setting": "설정 중",
+          "cooking": "조리 중",
+          "pause": "일시정지됨",
+          "finish": "완료",
+          "pairing": "페어링 중",
+          "precook": "준비 중",
+          "parasetting": "설정 변경 중",
+          "maintain": "보온 중",
+          "user_action": "조치 필요",
+          "powersave": "절전 모드",
+          "mainmenu": "메인 메뉴"
+        }
+      },
+      "airfryer_cooking_id": {
+        "name": "조리 ID"
+      },
+      "airfryer_current_stage": {
+        "name": "현재 단계"
+      },
+      "airfryer_voltage": {
+        "name": "전압"
+      },
+      "airfryer_left_status": {
+        "name": "왼쪽 바스켓 상태"
+      },
+      "airfryer_left_temperature": {
+        "name": "왼쪽 바스켓 온도"
+      },
+      "airfryer_left_time": {
+        "name": "왼쪽 바스켓 시간"
+      },
+      "airfryer_right_status": {
+        "name": "오른쪽 바스켓 상태"
+      },
+      "airfryer_right_temperature": {
+        "name": "오른쪽 바스켓 온도"
+      },
+      "airfryer_right_time": {
+        "name": "오른쪽 바스켓 시간"
+      },
+      "multicooker_humidity": {
+        "name": "습도"
+      },
+      "multicooker_ingredient": {
+        "name": "재료"
+      },
+      "autocook_uuid": {
+        "name": "자동 요리 프로그램"
+      },
+      "autocook_doneness": {
+        "name": "익힘 정도"
+      },
+      "autocook_amount": {
+        "name": "양"
+      },
+      "autocook_weight": {
+        "name": "무게"
+      },
+      "autocook_thickness": {
+        "name": "두께"
+      },
+      "recipe_current_stage": {
+        "name": "레시피 현재 단계"
+      },
+      "firmware_version": {
+        "name": "펌웨어 버전"
+      },
+      "firmware_available": {
+        "name": "사용 가능한 펌웨어"
+      },
+      "espresso_mainstate": {
+        "name": "머신 상태",
+        "state": {
+          "undefined": "정의되지 않음",
+          "standby": "대기",
+          "ready": "준비됨",
+          "brewing": "추출 중",
+          "processing": "처리 중",
+          "action_required": "조치 필요",
+          "error": "오류",
+          "suspended": "일시 중단됨",
+          "unknown": "알 수 없음",
+          "out_of_order": "고장"
+        }
+      },
+      "espresso_brewing_progress": {
+        "name": "추출 진행률"
+      },
+      "espresso_water_level": {
+        "name": "수위"
+      },
+      "espresso_descale_status": {
+        "name": "석회 제거 상태"
+      },
+      "espresso_filter_status": {
+        "name": "필터 상태"
+      },
+      "espresso_filter_number": {
+        "name": "필터 번호"
+      },
+      "espresso_waste_bean": {
+        "name": "찌꺼기 통"
+      },
+      "espresso_switch_state": {
+        "name": "스위치 상태"
+      },
+      "espresso_last_error": {
+        "name": "마지막 오류"
+      },
+      "espresso_active_user": {
+        "name": "활성 사용자"
+      },
+      "espresso_water_hardness": {
+        "name": "수질 경도"
+      },
+      "espresso_auto_standby_time": {
+        "name": "자동 대기 시간"
+      },
+      "rita_machine_state": {
+        "name": "머신 상태",
+        "state": {
+          "not_used": "사용 안 함",
+          "brewing": "추출 중",
+          "action_required": "조치 필요",
+          "unrecoverable_error": "복구할 수 없는 오류"
+        }
+      },
+      "rita_machine_status": {
+        "name": "동작 상태",
+        "state": {
+          "not_used": "사용 안 함",
+          "running": "실행 중",
+          "suspended_alarm": "알람으로 중단됨",
+          "suspended_resumable": "중단됨, 재개 가능",
+          "finishing_successfully": "정상 종료 중",
+          "finishing_unsuccessfully": "비정상 종료 중"
+        }
+      },
+      "rita_machine_extra_info": {
+        "name": "부가 정보",
+        "state": {
+          "not_used": "사용 안 함",
+          "bean_lack": "원두 없음",
+          "water_lack": "물 없음",
+          "ground_container_full": "커피 찌꺼기 용기 가득 참",
+          "brew_unit_missing": "브루잉 그룹 없음",
+          "water_container_should_be_removed": "물통을 분리하세요",
+          "drip_tray_removed": "물받이 분리됨",
+          "door_open": "도어 열림",
+          "ground_container_removed": "커피 찌꺼기 용기 분리됨",
+          "masterpiece_alarm": "Masterpiece 알람",
+          "user_abort_or_suspend_timeout": "사용자 취소 또는 일시정지 시간 초과",
+          "brew_abort_refill_required": "추출 중단, 보충 필요",
+          "brew_abort_heater_fail": "추출 중단, 히터 고장",
+          "brew_abort_bu_fail": "추출 중단, 브루잉 그룹 고장",
+          "brew_abort_grinder_fail": "추출 중단, 그라인더 고장",
+          "error_1": "오류 1",
+          "error_2": "오류 2",
+          "error_3": "오류 3",
+          "error_4": "오류 4",
+          "error_5": "오류 5",
+          "error_10": "오류 10",
+          "error_11": "오류 11",
+          "error_14": "오류 14",
+          "error_15": "오류 15",
+          "error_19": "오류 19",
+          "error_24": "오류 24"
+        }
+      },
+      "rita_control_status": {
+        "name": "제어 상태",
+        "state": {
+          "machine_notification": "머신 알림",
+          "no_error": "오류 없음",
+          "invalid_command": "잘못된 명령",
+          "non_existent_or_invalid_recipe": "레시피가 없거나 잘못됨",
+          "machine_busy": "머신 사용 중",
+          "machine_in_alarm_or_error_state": "머신 알람 또는 오류 상태",
+          "profiles_full": "프로필 가득 참",
+          "unavailable_color": "색상 사용 불가",
+          "invalid_profile_name": "잘못된 프로필 이름",
+          "no_recipe_selected": "선택된 레시피 없음",
+          "recipes_full": "레시피 가득 참",
+          "invalid_recipe_name": "잘못된 레시피 이름",
+          "invalid_profile_id": "잘못된 프로필 ID",
+          "invalid_profile_order": "잘못된 프로필 순서",
+          "invalid_barista_assistant_settings": "잘못된 Barista Assistant 설정"
+        }
+      },
+      "rita_bean_type": {
+        "name": "원두 종류",
+        "state": {
+          "arabica": "아라비카",
+          "mix": "블렌드",
+          "other": "기타"
+        }
+      },
+      "rita_roast_level": {
+        "name": "로스팅 레벨",
+        "state": {
+          "light": "약배전",
+          "medium": "중배전",
+          "dark": "강배전"
+        }
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "AquaClean 필터 번호"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "AquaClean 잔여량"
+      },
+      "rita_descale_autonomy": {
+        "name": "석회 제거 잔여량"
+      },
+      "rita_coffee_autonomy": {
+        "name": "커피 잔여량"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "브루잉 그룹 잔여량"
+      },
+      "ncp_firmware_version": {
+        "name": "NCP 펌웨어 버전"
+      },
+      "host_firmware_version": {
+        "name": "호스트 펌웨어 버전"
+      },
+      "product_error": {
+        "name": "제품 오류"
+      },
+      "ota_state": {
+        "name": "펌웨어 업데이트 상태",
+        "state": {
+          "no_download": "다운로드 없음",
+          "ncp_download_in_progress": "NCP 펌웨어 다운로드 중",
+          "host_download_in_progress": "호스트 펌웨어 다운로드 중",
+          "host_download_paused": "호스트 펌웨어 다운로드 일시정지됨",
+          "ncp_validating": "NCP 펌웨어 검증 중",
+          "host_validating": "호스트 펌웨어 검증 중"
+        }
+      },
+      "device_name": {
+        "name": "기기 이름"
+      },
+      "device_serial": {
+        "name": "시리얼 번호"
+      },
+      "device_ctn": {
+        "name": "모델 번호"
+      },
+      "espresso_bean_level": {
+        "name": "원두 잔량"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "필터 교체 필요"
+      },
+      "water_tank_empty": {
+        "name": "물탱크 비어있음"
+      },
+      "airfryer_drawer_open": {
+        "name": "서랍"
+      },
+      "airfryer_shake_reminder": {
+        "name": "흔들기 알림"
+      },
+      "airfryer_flip_reminder": {
+        "name": "뒤집기 알림"
+      },
+      "airfryer_preheat_active": {
+        "name": "예열 중"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "프로브 미연결"
+      },
+      "airfryer_probe_required": {
+        "name": "프로브 필요"
+      },
+      "airfryer_resting": {
+        "name": "레스팅"
+      },
+      "multicooker_lid_open": {
+        "name": "뚜껑"
+      },
+      "multicooker_no_water": {
+        "name": "물 부족"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "왼쪽 서랍"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "오른쪽 서랍"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "화씨 단위"
+      },
+      "firmware_update_available": {
+        "name": "펌웨어 업데이트 사용 가능"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "조리 시작"
+      },
+      "airfryer_pause": {
+        "name": "일시정지"
+      },
+      "airfryer_stop": {
+        "name": "정지"
+      },
+      "airfryer_keep_warm": {
+        "name": "보온"
+      },
+      "airfryer_refresh_recipe": {
+        "name": "레시피 새로고침"
+      },
+      "rita_brew": {
+        "name": "저장된 레시피 추출"
+      },
+      "rita_brew_builtin": {
+        "name": "기본 음료 추출"
+      },
+      "rita_abort_brew": {
+        "name": "추출 중지"
+      },
+      "rita_resume_brew": {
+        "name": "추출 재개"
+      },
+      "rita_skip_step": {
+        "name": "단계 건너뛰기"
+      },
+      "rita_brew_hot_water": {
+        "name": "뜨거운 물"
+      },
+      "airfryer_autocook_send": {
+        "name": "AutoCook 프로그램 전송"
+      },
+      "espresso_brew_coffee": {
+        "name": "커피 추출"
+      },
+      "espresso_brew_espresso": {
+        "name": "에스프레소 추출"
+      },
+      "muji_reset_filter_clean": {
+        "name": "필터 청소 타이머 초기화"
+      },
+      "muji_reset_filter_replace": {
+        "name": "필터 교체 타이머 초기화"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "온도 설정"
+      },
+      "airfryer_set_time": {
+        "name": "시간 설정"
+      },
+      "airfryer_set_airspeed": {
+        "name": "풍속 설정"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "프로브 온도 설정"
+      },
+      "set_beep_volume": {
+        "name": "알림음 볼륨"
+      },
+      "set_air_quality_threshold": {
+        "name": "공기질 임계값"
+      },
+      "set_keep_warm_time": {
+        "name": "보온 시간"
+      },
+      "set_keep_warm_temp": {
+        "name": "보온 온도"
+      },
+      "espresso_grinder_dose": {
+        "name": "분쇄량"
+      },
+      "espresso_brew_temperature": {
+        "name": "추출 온도"
+      },
+      "espresso_brew_count": {
+        "name": "추출 횟수"
+      },
+      "espresso_primary_dose": {
+        "name": "주 용량"
+      },
+      "espresso_secondary_dose": {
+        "name": "부 용량"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "조리 방법",
+        "state": {
+          "manual": "수동",
+          "frozen_snacks": "냉동 간식",
+          "fresh_fries": "신선한 감자튀김",
+          "chicken": "치킨",
+          "fish": "생선",
+          "muffins_cake": "머핀/케이크",
+          "meat_chops": "갈비",
+          "vegetables": "채소",
+          "keep_warm": "보온",
+          "auto_cook": "자동 조리",
+          "recipe": "레시피",
+          "no_selection": "선택 없음",
+          "air_steam": "에어 스팀",
+          "steaming": "찜",
+          "roast": "구이",
+          "bake": "베이킹",
+          "slow_cook": "저속 조리",
+          "defrost": "해동",
+          "reheat": "재가열",
+          "sous_vide": "수비드",
+          "air_steam_pro": "에어 스팀 프로",
+          "stew": "조림",
+          "user_preset": "사용자 설정",
+          "easy_clean": "간편 세척"
+        }
+      },
+      "my_preset": {
+        "name": "내 프리셋"
+      },
+      "rita_roast_level_select": {
+        "name": "로스팅 레벨",
+        "state": {
+          "light": "약배전",
+          "medium": "중배전",
+          "dark": "강배전"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "원두 종류",
+        "state": {
+          "arabica": "아라비카",
+          "mix": "블렌드",
+          "other": "기타"
+        }
+      },
+      "rita_brew_profile_select": {
+        "name": "추출 프로파일"
+      },
+      "rita_brew_recipe_select": {
+        "name": "저장된 레시피"
+      },
+      "rita_builtin_drink_select": {
+        "name": "기본 음료"
+      },
+      "autocook_program": {
+        "name": "AutoCook 프로그램"
+      },
+      "operation_mode": {
+        "name": "운전 모드",
+        "state": {
+          "auto": "자동",
+          "gentle": "약",
+          "medium": "중",
+          "fast": "강",
+          "sleep": "수면",
+          "turbo": "터보"
+        }
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "어린이 잠금"
+      },
+      "preheat": {
+        "name": "예열"
+      },
+      "sensor_monitor_standby": {
+        "name": "대기 센서 모니터"
+      },
+      "power": {
+        "name": "전원"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "펌웨어"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "공기청정기"
+      }
+    }
+  }
+}

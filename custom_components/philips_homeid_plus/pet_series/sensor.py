@@ -1,0 +1,742 @@
+import base64
+from datetime import datetime, timedelta
+import json
+
+from homeassistant.components.sensor import (
+    RestoreSensor,
+    SensorEntity,
+    SensorDeviceClass,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
+
+import logging
+
+from petsseries.api import PetsSeriesClient
+
+from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
+from .const import REMOVED_DP_SENSORS  # noqa: F401  (documented alongside _READ_ONLY_TUYA_DPS)
+from .datapoints import datapoints
+from . import firmware
+from .entity import PhilipsPetsSeriesEntity, iter_home_devices
+from .meals import device_meals, next_occurrence as next_meal, occurrences
+
+_LOGGER = logging.getLogger(__name__)
+
+# Home Assistant rejects states longer than this, so long raw payloads are
+# truncated into the state and preserved in an attribute.
+_MAX_STATE_LENGTH = 255
+
+# Read-only datapoints worth surfacing, named from the device's own schema.
+# Datapoints deliberately left out (see REMOVED_DP_SENSORS in const): command registers
+# and packed integers the device never documents, which only ever produced an
+# opaque number.
+_READ_ONLY_TUYA_DPS = {
+    # "grams per portion": the device's portion calibration, so
+    # portions x this = the amount of food dispensed.
+    "202": ("Portion size", "g"),
+    # "feeding abnormality": the fault register the food/outlet problem
+    # sensors use to decide whether a fault is still current.
+    "255": ("Feeding fault", None),
+    # "reported history data": a packed feeding record whose encoding Philips
+    # does not publish.  Recorded history shows it does change around feeding
+    # (observed 256/512/768, i.e. n << 8), so it is kept for anyone wanting to
+    # decode it -- but disabled by default, since an opaque integer is not
+    # useful on a dashboard.
+    "206": ("Reported history data", None),
+}
+
+# Datapoints surfaced only for diagnosis; created disabled so they do not clutter
+# the device page unless somebody deliberately turns them on.
+_DISABLED_BY_DEFAULT_DPS = ("206",)
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the Philips Pets Series sensors."""
+    coordinator: PhilipsPetsSeriesDataUpdateCoordinator = hass.data[DOMAIN][
+        config_entry.entry_id
+    ]["coordinator"]
+    beacons = hass.data[DOMAIN][config_entry.entry_id].get("beacons")
+    bridge = hass.data[DOMAIN][config_entry.entry_id].get("bridge")
+
+    event_types = coordinator.data.get("event_types", [])
+
+    # Convert event_types to strings if they are objects
+    event_types_str = []
+    for event_type in event_types:
+        if isinstance(event_type, str):
+            event_types_str.append(event_type)
+        elif hasattr(event_type, "value"):
+            event_types_str.append(str(event_type.value))
+        else:
+            event_types_str.append(str(event_type))
+
+    sensors = []
+    for home, device in iter_home_devices(coordinator):
+        # Only offer an MCU version where the hardware reports one; feeders
+        # without a separate microcontroller list a wireless module only, and a
+        # permanently empty sensor is worse than no sensor.
+        if firmware.has_ota_module(coordinator, device, "mcu"):
+            sensors.append(PhilipsPetsSeriesFirmwareSensor(coordinator, home, device, "mcu"))
+        sensors.append(PhilipsPetsSeriesFirmwareSensor(coordinator, home, device, "wifi"))
+        sensors.extend(
+            PhilipsPetsSeriesRawDpSensor(coordinator, home, device, dp_id, name, unit)
+            for dp_id, (name, unit) in _READ_ONLY_TUYA_DPS.items()
+        )
+        sensors.append(PhilipsPetsSeriesCameraOrientationSensor(coordinator, home, device))
+        sensors.append(PhilipsPetsSeriesMotionSnapshotSensor(coordinator, home, device))
+        sensors.append(PhilipsPetsSeriesNextMealSensor(coordinator, home, device))
+        sensors.append(
+            PhilipsPetsSeriesLanAddressSensor(coordinator, home, device, beacons)
+        )
+        if bridge is not None:
+            sensors.append(
+                PhilipsPetsSeriesStreamUrlSensor(coordinator, home, device, bridge)
+            )
+        for event_type_str in event_types_str:
+            sensors.append(
+                PhilipsPetsSeriesEventSensor(coordinator, home, device, event_type_str)
+            )
+
+    # Cloud DP status is available through the authenticated Philips/Tuya path;
+    # a LAN TinyTuya client is optional.
+    client: PetsSeriesClient = hass.data[DOMAIN][config_entry.entry_id]["client"]
+    if client.tuya_client or getattr(client.auth, "id_token", None):
+        for home, device in iter_home_devices(coordinator):
+            sensors.append(
+                PhilipsPetsSeriesTuyaStatusSensor(coordinator, home, device, client)
+            )
+
+    # Add Invites Sensor
+    for home in coordinator.data.get("homes", []):
+        sensors.append(PhilipsPetsSeriesInvitesSensor(coordinator, home))
+
+    # Add Discovery Sensor
+    sensors.append(PhilipsPetsSeriesDiscoverySensor(coordinator))
+
+    async_add_entities(sensors)
+
+
+class PhilipsPetsSeriesFirmwareSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """Expose the MCU/WiFi versions reported by the Tuya device metadata."""
+
+    def __init__(self, coordinator, home, device, component: str):
+        super().__init__(coordinator, device, home)
+        self._component = component
+        self._attr_unique_id = f"{device.id}_{component}_firmware_version"
+        self._attr_name = f"{component.upper()} firmware version"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_icon = "mdi:chip" if component == "mcu" else "mdi:wifi"
+
+    @property
+    def native_value(self):
+        """The version this module is running."""
+        return firmware.installed_version(
+            self.coordinator, self._device, self._component
+        )
+
+    @property
+    def extra_state_attributes(self):
+        """The raw OTA record, unchanged, for anyone decoding what Philips sent.
+
+        Kept whole rather than trimmed: these keys are what the Tuya endpoints
+        actually return, and somebody templating against them should see the
+        same names.
+        """
+        record, captured = firmware.ota_record(
+            self.coordinator, self._device.id, self._component
+        )
+        if not record:
+            return None
+        return {
+            "ota_type": record.get("type"),
+            "version": record.get("version"),
+            "current_version": (
+                record.get("currentVersion") or record.get("current_version")
+            ),
+            "available_version": record.get("version"),
+            "upgrade_status": record.get("upgradeStatus"),
+            "upgrade_type": record.get("upgradeType"),
+            "upgrade_mode": record.get("upgradeMode"),
+            "can_upgrade": record.get("canUpgrade"),
+            "url": record.get("url"),
+            "file_size": record.get("fileSize"),
+            "md5": record.get("md5"),
+            "sign": record.get("sign"),
+            "hmac": record.get("hmac"),
+            "file_path": record.get("filePath"),
+            "diff_ota": record.get("diffOta"),
+            # A stored record cannot establish that an update is on offer now,
+            # only that one was, so a historical record never reads available.
+            "update_available": not captured and firmware.is_offer(record),
+            "captured_from_history": captured,
+        }
+
+
+class PhilipsPetsSeriesRawDpSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """Expose a read-only Tuya datapoint without allowing control."""
+
+    def __init__(self, coordinator, home, device, dp_id: str, name: str, unit: str | None) -> None:
+        super().__init__(coordinator, device, home)
+        self._dp_id = dp_id
+        self._attr_unique_id = f"{device.id}_tuya_dp_{dp_id}"
+        self._attr_name = name
+        self._attr_native_unit_of_measurement = unit
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_icon = "mdi:scale" if unit == "g" else "mdi:alert-circle-outline"
+        if dp_id in _DISABLED_BY_DEFAULT_DPS:
+            self._attr_entity_registry_enabled_default = False
+        self._scale = int(
+            (datapoints.get(dp_id, {}).get("properties") or {}).get("scale") or 0
+        )
+
+    @property
+    def _raw_value(self):
+        value = (
+            self.coordinator.data.get("settings", {})
+            .get(self._device.id, {})
+            .get("tuya_status", {})
+            .get(self._dp_id)
+        )
+        # Several datapoints report an empty string when they hold nothing;
+        # that is an absent value, not a state of "".
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @property
+    def native_value(self):
+        value = self._raw_value
+        if value is None:
+            return None
+        # Tuya transmits fixed-point integers: the datapoint's scale says how
+        # many decimal places the raw value carries.
+        if self._scale and isinstance(value, (int, float)) and not isinstance(value, bool):
+            return value / (10 ** self._scale)
+        if not isinstance(value, (str, int, float)):
+            value = str(value)
+        # Some datapoints carry base64 blobs (snapshots, history, voice files)
+        # that exceed Home Assistant's 255-character state limit, which would
+        # make the whole entity fail to update.  Keep the state short and put
+        # the full payload in an attribute.
+        if isinstance(value, str) and len(value) > _MAX_STATE_LENGTH:
+            return value[: _MAX_STATE_LENGTH - 1] + "…"
+        return value
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._raw_value is not None
+
+    @property
+    def extra_state_attributes(self):
+        attributes = {"dp_id": self._dp_id, "read_only": True}
+        value = self._raw_value
+        if isinstance(value, str) and len(value) > _MAX_STATE_LENGTH:
+            attributes["full_value"] = value
+            attributes["truncated"] = True
+        return attributes
+
+
+class PhilipsPetsSeriesCameraOrientationSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """Expose the camera transform reported by Tuya DP 241."""
+
+    def __init__(self, coordinator, home, device) -> None:
+        super().__init__(coordinator, device, home)
+        self._attr_unique_id = f"{device.id}_camera_orientation"
+        self._attr_name = "Camera orientation"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_icon = "mdi:rotate-right"
+
+    @property
+    def native_value(self):
+        return (
+            self.coordinator.data.get("settings", {})
+            .get(self._device.id, {})
+            .get("tuya_status", {})
+            .get("241")
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.native_value is not None
+
+
+class PhilipsPetsSeriesMotionSnapshotSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """Expose safe metadata from Tuya DP 212 motion-image notifications."""
+
+    def __init__(self, coordinator, home, device) -> None:
+        super().__init__(coordinator, device, home)
+        self._attr_unique_id = f"{device.id}_motion_snapshot_metadata"
+        self._attr_name = "Last motion snapshot metadata"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_icon = "mdi:camera-outline"
+
+    @property
+    def _metadata(self) -> dict:
+        value = (
+            self.coordinator.data.get("settings", {})
+            .get(self._device.id, {})
+            .get("tuya_status", {})
+            .get("212")
+        )
+        if not isinstance(value, str) or not value:
+            return {}
+        try:
+            return json.loads(base64.b64decode(value).decode())
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            return {}
+
+    @property
+    def native_value(self):
+        timestamp = self._metadata.get("time")
+        return str(timestamp) if timestamp is not None else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and bool(self._metadata)
+
+    @property
+    def extra_state_attributes(self):
+        metadata = self._metadata
+        if not metadata:
+            return None
+        return {
+            "version": metadata.get("v"),
+            "command": metadata.get("cmd"),
+            "media_type": metadata.get("type"),
+            "alarm": metadata.get("alarm"),
+            "timestamp": metadata.get("time"),
+        }
+
+
+class PhilipsPetsSeriesStreamUrlSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """The camera's RTSP address, as a recorder outside Home Assistant needs it.
+
+    Without this the address can only be found in debug logs, and the loopback
+    form shown inside Home Assistant does not work from anywhere else -- which
+    is the usual reason an NVR cannot connect.
+    """
+
+    def __init__(self, coordinator, home, device, bridge) -> None:
+        super().__init__(coordinator, device, home)
+        self._bridge = bridge
+        self._attr_unique_id = f"{device.id}_stream_url"
+        self._attr_name = "Camera stream address"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_icon = "mdi:link-variant"
+        self._attr_entity_registry_enabled_default = False
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.native_value is not None
+
+    @property
+    def native_value(self):
+        return self._bridge.public_stream_url(self._device)
+
+    @property
+    def extra_state_attributes(self):
+        """Say where the address came from, and warn if it was only guessed."""
+        endpoint = self._bridge.stream_endpoint(self._device) or {}
+        return {
+            key: endpoint[key]
+            for key in ("port", "path", "address_source", "note")
+            if key in endpoint
+        }
+
+
+class PhilipsPetsSeriesLanAddressSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """The feeder's current address on the local network.
+
+    Learned passively from the device's own broadcast, so it follows DHCP
+    changes without anything being configured.
+    """
+
+    def __init__(self, coordinator, home, device, beacons) -> None:
+        super().__init__(coordinator, device, home)
+        self._beacons = beacons
+        self._attr_unique_id = f"{device.id}_lan_address"
+        self._attr_name = "LAN address"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_icon = "mdi:ip-network"
+        # Off by default: interesting for diagnosis, noise on a dashboard.
+        self._attr_entity_registry_enabled_default = False
+
+    def _beacon(self):
+        if self._beacons is None:
+            return None
+        return self._beacons.seen(self.coordinator.tuya_device_id(self._device))
+
+    @property
+    def available(self) -> bool:
+        # No beacon means "we cannot know", not "no address".
+        return super().available and self._beacon() is not None
+
+    @property
+    def native_value(self):
+        beacon = self._beacon()
+        return beacon.ip if beacon else None
+
+    @property
+    def extra_state_attributes(self):
+        beacon = self._beacon()
+        if beacon is None:
+            return {}
+        return {"protocol_version": beacon.protocol, "last_seen_seconds_ago": round(beacon.age)}
+
+
+class PhilipsPetsSeriesNextMealSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """When this feeder next serves a scheduled meal.
+
+    The meal calendar is the full schedule, but a calendar only reads "on" while
+    a meal is actually being served, so at a glance it looks like nothing is
+    scheduled.  This sensor always shows the next feeding time instead.
+    """
+
+    def __init__(self, coordinator, home, device) -> None:
+        super().__init__(coordinator, device, home)
+        self._attr_unique_id = f"{device.id}_next_meal"
+        self._attr_name = "Next meal"
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        self._attr_icon = "mdi:calendar-clock"
+
+    @property
+    def native_value(self):
+        occurrence = next_meal(self.coordinator, self._device.id)
+        return occurrence.start if occurrence else None
+
+    @property
+    def extra_state_attributes(self):
+        """Describe the next meal and how much is scheduled overall."""
+        scheduled = device_meals(self.coordinator, self._device.id)
+        attributes = {
+            "scheduled_meals": len(scheduled),
+            "feeding_times": sorted(
+                meal.feed_time for meal in scheduled if getattr(meal, "feed_time", None)
+            ),
+        }
+        occurrence = next_meal(self.coordinator, self._device.id)
+        if occurrence is not None:
+            attributes["meal_name"] = occurrence.name
+            attributes["portions"] = occurrence.portions
+        # "feeding_times" are the raw strings Philips reports, which are UTC
+        # when suffixed with Z and account-local otherwise -- fine to template
+        # against, ambiguous to display.  "upcoming" is the same schedule already
+        # expanded to unambiguous timestamps, which is what a UI wants.
+        now = dt_util.now()
+        attributes["upcoming"] = [
+            {
+                "start": upcoming.start.isoformat(),
+                "name": upcoming.name,
+                "portions": upcoming.portions,
+            }
+            for upcoming in occurrences(
+                self.coordinator, self._device.id, now, now + timedelta(days=1)
+            )
+            if upcoming.start > now
+        ]
+        return attributes
+
+
+class PhilipsPetsSeriesEventSensor(PhilipsPetsSeriesEntity, RestoreSensor):
+    """When this device last raised a given event.
+
+    Philips only serves a bounded slice of event history, so an event older than
+    that window is absent from the API even though it certainly happened.  The
+    last known timestamp is therefore restored across restarts and only ever
+    moves forward, instead of reverting to "unknown" whenever the event ages out
+    of the query window.
+    """
+
+    def __init__(
+        self,
+        coordinator: PhilipsPetsSeriesDataUpdateCoordinator,
+        home,
+        device,
+        event_type: str,
+    ):
+        """Initialize the sensor."""
+        super().__init__(coordinator, device, home)
+        self._event_type = event_type
+        self._attr_unique_id = f"{device.id}_last_{self._event_type}_event"
+
+        self._attr_name = f"Last {self._event_type.replace('eventtype.', ' ').replace('_', ' ').title()} Event"
+
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        self._restored_value: datetime | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the last known timestamp before the first refresh."""
+        await super().async_added_to_hass()
+        last_data = await self.async_get_last_sensor_data()
+        if last_data is not None and isinstance(last_data.native_value, datetime):
+            self._restored_value = last_data.native_value
+
+    def _latest_event(self):
+        """Return this device's newest event of this type, if any.
+
+        The coordinator indexes events per home, so events raised by other
+        devices in the same home must be filtered out -- otherwise this sensor
+        reports another feeder's timestamp, name and thumbnail.
+        """
+        key = f"{self._home.id}_{self._event_type}"
+        events = self.coordinator.data.get("events_by_home_and_type", {}).get(key, [])
+        mine = [
+            event
+            for event in events
+            if getattr(event, "device_id", None) is None
+            or str(event.device_id) == str(self._device.id)
+        ]
+        if not mine:
+            return None
+        return max(
+            mine,
+            key=lambda event: dt_util.parse_datetime(event.time) or dt_util.utcnow(),
+        )
+
+    @property
+    def native_value(self):
+        latest_event = self._latest_event()
+        parsed_time = None
+        if latest_event is not None:
+            parsed_time = dt_util.parse_datetime(latest_event.time)
+            if parsed_time is None:
+                _LOGGER.warning("Failed to parse event time for %s", self._event_type)
+        # Never regress: an event dropping out of the API's history window does
+        # not mean it stopped having happened.
+        candidates = [
+            value for value in (parsed_time, self._restored_value) if value is not None
+        ]
+        if not candidates:
+            return None
+        newest = max(candidates)
+        self._restored_value = newest
+        # Return the datetime itself: HA normalises it for TIMESTAMP sensors.
+        return newest
+
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        attributes = {}
+        latest_event = self._latest_event()
+        if latest_event is not None:
+            _LOGGER.debug(f"Latest event: {latest_event}")
+            parsed_time = dt_util.parse_datetime(latest_event.time)
+            attributes["source"] = latest_event.source
+            attributes["event_id"] = latest_event.id
+            attributes["original_time"] = (
+                latest_event.time
+            )
+            if parsed_time:
+                attributes["timestamp"] = parsed_time.timestamp()
+            if latest_event.type == "motion_detected":
+                attributes.update(
+                    {
+                        "device_name": latest_event.device_name,
+                        "thumbnail_url": latest_event.thumbnail_url,
+                    }
+                )
+            elif latest_event.type == "meal_dispensed":
+                attributes.update(
+                    {
+                        "meal_name": latest_event.meal_name,
+                        "meal_amount": latest_event.meal_amount,
+                    }
+                )
+            elif latest_event.type == "meal_upcoming":
+                attributes.update(
+                    {
+                        "meal_name": latest_event.meal_name,
+                        "meal_amount": latest_event.meal_amount,
+                    }
+                )
+            elif latest_event.type == "food_level_low":
+                attributes.update(
+                    {
+                        "device_name": latest_event.device_name,
+                        "product_ctn": latest_event.product_ctn,
+                    }
+                )
+        return attributes
+
+    @property
+    def icon(self):
+        """Return the icon to use in the frontend based on event type."""
+        icon_map = {
+            "motion_detected": "mdi:motion-sensor",
+            "meal_dispensed": "mdi:food",
+            "meal_upcoming": "mdi:food",
+            "food_level_low": "mdi:alert",
+            "meal_enabled": "mdi:check-circle",
+            "filter_replacement_due": "mdi:filter",
+            "food_outlet_stuck": "mdi:alert-circle",
+            "device_offline": "mdi:power-plug-off",
+            "device_online": "mdi:power-plug",
+        }
+        return icon_map.get(self._event_type, "mdi:information")
+
+    @property
+    def available(self):
+        """Return if the sensor is available."""
+        return super().available and self.coordinator.last_update_success
+
+
+class PhilipsPetsSeriesInvitesSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a Philips Pets Series Invites Sensor."""
+
+    def __init__(self, coordinator: PhilipsPetsSeriesDataUpdateCoordinator, home):
+        """Initialize the invites sensor."""
+        super().__init__(coordinator)
+        self.home = home
+        self._attr_unique_id = f"home_{home.id}_invites"
+        self._attr_name = f"{home.name} Invites"
+        self._attr_icon = "mdi:account-plus"
+
+    @property
+    def device_info(self):
+        """Represent the Philips home even when it has no devices."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"home_{self.home.id}")},
+            name=self.home.name,
+            manufacturer="Philips",
+            model="Pet Series Home",
+        )
+
+    @property
+    def state(self):
+        """Return the number of invites."""
+        invites = self.coordinator.data.get("invites", {}).get(self.home.id, [])
+        return len(invites)
+
+    @property
+    def extra_state_attributes(self):
+        """Return extra attributes."""
+        invites = self.coordinator.data.get("invites", {}).get(self.home.id, [])
+        return {
+            "invites": [
+                {
+                    "email": i.email,
+                    "label": i.label,
+                    "role": i.role.value,
+                    "status": i.status.value,
+                    "token": i.id, # Using ID as token or ID
+                }
+                for i in invites
+            ]
+        }
+
+    @property
+    def available(self):
+        """Return if the sensor is available."""
+        return super().available and self.coordinator.last_update_success
+
+
+class PhilipsPetsSeriesTuyaStatusSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """Diagnostic dump of the datapoints the Tuya cloud returned.
+
+    Kept for troubleshooting -- its attributes carry the raw and normalised
+    datapoint maps.  Connectivity itself is better read from the
+    ``tuya_cloud_connected`` binary sensor; this entity exists for the payload.
+    """
+
+    def __init__(
+        self,
+        coordinator: PhilipsPetsSeriesDataUpdateCoordinator,
+        home,
+        device,
+        client: PetsSeriesClient,
+    ):
+        """Initialize the Tuya status sensor."""
+        # Register against the device like every other entity; subclassing the
+        # coordinator entity directly left this orphaned from its device.
+        super().__init__(coordinator, device, home)
+        self.home = home
+        self.device = device
+        self.client = client
+        self._attr_unique_id = f"{device.id}_tuya_status"
+        self._attr_name = "Tuya datapoints"
+        self._attr_icon = "mdi:cloud"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def state(self):
+        """Return whether the authenticated Tuya cloud returned device DPs."""
+        status = self._status
+        return "online" if status else "unavailable"
+
+    @property
+    def _status(self):
+        return (
+            self.coordinator.data.get("settings", {})
+            .get(self.device.id, {})
+            .get("tuya_status", {})
+        )
+
+    @property
+    def extra_state_attributes(self):
+        """Return cloud DPs without credential material."""
+        status = self._status
+        if not isinstance(status, dict):
+            return {}
+        return {
+            "raw_dps": {key: value for key, value in status.items() if str(key).isdigit()},
+            "normalized_dps": {
+                key: value for key, value in status.items() if not str(key).isdigit()
+            },
+        }
+
+    @property
+    def available(self):
+        """Return if the sensor is available."""
+        return (
+            super().available
+            and self.coordinator.last_update_success
+            and bool(self._status)
+        )
+
+
+class PhilipsPetsSeriesDiscoverySensor(CoordinatorEntity, SensorEntity):
+    """Representation of the Philips Pets Series Discovery (Version) Sensor."""
+
+    def __init__(self, coordinator):
+        """Initialize the discovery sensor."""
+        super().__init__(coordinator)
+        # Entry-scoped: a bare constant collides when a second account is
+        # configured, and HA then drops the duplicate entity.
+        entry_id = getattr(getattr(coordinator, "config_entry", None), "entry_id", None)
+        self._attr_unique_id = (
+            f"{entry_id}_api_version" if entry_id else "philips_homeid_plus_api_version"
+        )
+        self._attr_name = "Philips Pet Series Cloud Version"
+        self._attr_icon = "mdi:cloud-check"
+
+    @property
+    def state(self):
+        """Return the current android version as a proxy for API version."""
+        config = self.coordinator.data.get("base_data", {}).get("discovery_config")
+        if config and config.android_release:
+            # Report unknown rather than a literal "Unknown"/"" so templates can
+            # test the state properly.
+            return config.android_release.current_version or None
+        return None
+
+    @property
+    def extra_state_attributes(self):
+        """Return extra attributes."""
+        config = self.coordinator.data.get("base_data", {}).get("discovery_config")
+        if config:
+            return {
+                "api_url": config.api_url,
+                "consumer_url": config.consumer_url,
+                "ios_version": config.ios_release.current_version if config.ios_release else None,
+                "min_android_version": config.android_release.min_version if config.android_release else None,
+            }
+        return {}

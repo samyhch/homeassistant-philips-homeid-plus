@@ -1,0 +1,31 @@
+name: Device support request
+description: Request support for another Philips HomeID device model
+title: "[Device]: "
+labels: ["device-support"]
+body:
+  - type: input
+    attributes:
+      label: Exact model
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Product family
+      options:
+        - HomeID appliance
+        - Pet Series
+        - Air purifier or humidifier
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Requested functionality
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: I will redact credentials, tokens, serial numbers, device IDs, IP addresses, and personal information from diagnostics and logs.
+          required: true

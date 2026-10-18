@@ -1,0 +1,134 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Philips Pets Series",
+        "description": "Enter the email address for your Philips account. We will send you a one-time code.{detail}",
+        "data": {
+          "email": "Email address"
+        },
+        "data_description": {
+          "email": "The account email that owns your Pet Series devices."
+        }
+      },
+      "code": {
+        "title": "Enter Philips verification code",
+        "description": "A one-time code was sent to {email}.{detail}",
+        "data": {
+          "code": "Email code"
+        },
+        "data_description": {
+          "code": "Enter the code from the email."
+        }
+      },
+      "reauth_user": {
+        "title": "Re-authenticate Philips Pets Series",
+        "description": "Enter your Philips account email. We will send a new one-time code.{detail}",
+        "data": {
+          "email": "Email address"
+        }
+      },
+      "reauth_code": {
+        "title": "Enter Philips verification code",
+        "description": "A one-time code was sent to {email}.{detail}",
+        "data": {
+          "code": "Email code"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Philips Pets Series",
+        "description": "Enter the Philips account email to replace the stored login.{detail}",
+        "data": {
+          "email": "Email address"
+        }
+      },
+      "reconfigure_code": {
+        "title": "Enter Philips verification code",
+        "description": "A one-time code was sent to {email}.{detail}",
+        "data": {
+          "code": "Email code"
+        }
+      },
+      "reauth_method": {
+        "title": "Re-authenticate Philips Pets Series",
+        "description": "Your authentication has expired. Choose how to re-authenticate.",
+        "data": {
+          "auth_method": "Authentication Method"
+        }
+      },
+      "reauth_oauth_callback": {
+        "title": "Complete Re-authentication",
+        "description": "**Step 1:** Open the login URL:\n\n[Click here to login]({authorization_url})\n\n**Step 2:** Log in with your Philips account.\n\n**Step 3:** After login, you'll see an error message about 'Failed to launch paw://login?code=...'. To get the callback URL:\n\n1. Open Chrome DevTools (F12 or Right-click → Inspect)\n2. Go to the Console tab\n3. Find the error message that shows the `paw://login?code=...` URL\n4. Right-click on that URL in the console\n5. Select 'Copy' to copy the full URL\n6. Paste it below\n\n**Note:** You cannot copy the URL from the address bar. You must use Chrome DevTools console to copy the `paw://` URL.",
+        "data": {
+          "callback_url": "Callback URL"
+        },
+        "data_description": {
+          "callback_url": "Paste the full redirect URL starting with 'paw://login?...' (copy from Chrome DevTools console)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Philips Pets Series",
+        "description": "Your authentication has failed. To re-authenticate, please visit [this login page]({login_url}) and extract new tokens.",
+        "data": {
+          "access_token": "Access Token",
+          "refresh_token": "Refresh Token"
+        },
+        "data_description": {
+          "access_token": "Enter your new access token.",
+          "refresh_token": "Enter your new refresh token."
+        }
+      },
+      "settings": {
+        "title": "Regional settings",
+        "description": "Sent with Philips/Tuya requests so they match your account. Defaults come from your Home Assistant configuration.",
+        "data": {
+          "timezone": "Time zone",
+          "language": "Language",
+          "country": "Country",
+          "camera_mode": "Camera streaming"
+        },
+        "data_description": {
+          "camera_mode": "The feeder allows only a few simultaneous camera connections, and opening one can disconnect the Philips app. 'Only while watching' connects on demand (recommended). Choose 'Always on' if something outside Home Assistant records the stream continuously, such as an NVR. 'Off' never connects to the camera."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not complete the Philips sign-in. The reason is shown with this form.",
+      "no_homes": "Signed in, but this Philips account has no home yet. Open the Philips Pet Series app, finish setting up your feeder so a home is created, then try again.",
+      "invalid_auth": "The code was invalid or expired. Request a new code and try again.",
+      "invalid_tuya_support": "Tuya support is invalid or missing dependencies.",
+      "auth_url_failed": "Failed to generate authorization URL. Please try again.",
+      "unknown": "Something unexpected went wrong. The reason is shown with this form."
+    },
+    "abort": {
+      "already_configured": "This Philips account is already configured.",
+      "unknown_entry": "The configuration entry is unknown.",
+      "reauth_successful": "Re-authentication successful! Your tokens have been updated.",
+      "reconfigure_successful": "Reconfiguration successful!"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Philips Pets Series options",
+        "data": {
+          "camera_mode": "Camera streaming",
+          "idle_timeout_minutes": "Disconnect from the camera after"
+        },
+        "data_description": {
+          "camera_mode": "The feeder allows only a few simultaneous camera connections, and opening one can disconnect the Philips app. 'Only while watching' connects on demand (recommended). 'Always on' keeps the stream up permanently, which external recorders need. 'Off' never connects to the camera.",
+          "idle_timeout_minutes": "Only used when camera streaming is set to 'Only while watching'. When you close the camera view, Home Assistant waits this long before letting go of the camera. A longer wait makes opening the camera again instant; a shorter one hands the camera back to the Philips app sooner. Five minutes suits most people."
+        }
+      }
+    }
+  },
+  "selector": {
+    "camera_mode": {
+      "options": {
+        "on_demand": "Only while watching (recommended)",
+        "always": "Always on",
+        "disabled": "Off"
+      }
+    }
+  }
+}

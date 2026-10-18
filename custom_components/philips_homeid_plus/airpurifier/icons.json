@@ -1,0 +1,243 @@
+{
+  "entity": {
+    "fan": {
+      "pap": {
+        "state": {
+          "off": "paptest:power_button"
+        },
+        "state_attributes": {
+          "preset_mode": {
+            "default": "paptest:mode",
+            "state": {
+              "auto": "paptest:auto_mode_button",
+              "auto_general": "paptest:auto_mode_button",
+              "auto_plus": "paptest:auto_mode_button",
+              "bacteria": "paptest:bacteria_virus_mode",
+              "allergen": "paptest:allergen_mode",
+              "gentle": "paptest:speed_1",
+              "night": "paptest:sleep_mode",
+              "sleep": "paptest:sleep_mode",
+              "sleep_allergy": "paptest:sleep_mode",
+              "turbo": "paptest:speed_3",
+              "medium": "paptest:speed_2",
+              "gas": "paptest:gas",
+              "pollution": "paptest:pollution_mode",
+              "low": "paptest:speed_1",
+              "high": "paptest:speed_3",
+              "ventilation": "paptest:circulate",
+              "natural": "paptest:fan_speed_button",
+              "speed_1": "paptest:speed_1",
+              "gentle_speed_1": "paptest:speed_1",
+              "speed_2": "paptest:speed_2",
+              "speed_3": "paptest:speed_3",
+              "speed_4": "paptest:fan_speed_button",
+              "speed_5": "paptest:fan_speed_button",
+              "speed_6": "paptest:fan_speed_button",
+              "speed_7": "paptest:fan_speed_button",
+              "speed_8": "paptest:fan_speed_button",
+              "speed_9": "paptest:fan_speed_button",
+              "speed_10": "paptest:fan_speed_button"
+            }
+          }
+        }
+      }
+    },
+    "humidifier": {
+      "pap": {
+        "state": {
+          "off": "paptest:power_button"
+        },
+        "state_attributes": {
+          "mode": {
+            "state": {
+              "purification": "paptest:purification_only_mode",
+              "purification_humidification": "paptest:two_in_one_mode",
+              "auto": "paptest:auto_mode_button",
+              "allergen": "paptest:allergen_mode",
+              "sleep": "paptest:sleep_mode",
+              "night": "paptest:sleep_mode",
+              "turbo": "paptest:speed_3",
+              "high": "paptest:speed_3",
+              "medium": "paptest:speed_2",
+              "speed_1": "paptest:speed_1",
+              "speed_2": "paptest:speed_2",
+              "speed_3": "paptest:speed_3"
+            }
+          },
+          "action": {
+            "state": {
+              "off": "paptest:power_button",
+              "humidifying": "paptest:humidity_button",
+              "idle": "paptest:purification_only_mode"
+            }
+          },
+          "current_humidity": {
+            "default": "paptest:humidity_button"
+          }
+        }
+      }
+    },
+    "climate": {
+      "pap": {
+        "state": {
+          "off": "paptest:power_button",
+          "auto": "paptest:auto_mode",
+          "fan_only": "paptest:circulate",
+          "heat": "paptest:heating"
+        },
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "paptest:auto_mode",
+              "high": "paptest:temp_high",
+              "medium": "paptest:temp_medium",
+              "low": "paptest:temp_low",
+              "ventilation": "paptest:circulate"
+            }
+          },
+          "swing_mode": {
+            "state": {
+              "off": "paptest:rotate",
+              "on": "paptest:rotate"
+            }
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "water_tank": {
+        "state": {
+          "on": "mdi:water",
+          "off": "mdi:water-off"
+        }
+      },
+      "humidification": {
+        "state": {
+          "on": "paptest:two_in_one_mode",
+          "off": "paptest:purification_only_mode"
+        }
+      }
+    },
+    "sensor": {
+      "indoor_allergen_index": {
+        "default": "paptest:iai"
+      },
+      "pm25": {
+        "default": "paptest:pm25b"
+      },
+      "gas": {
+        "default": "paptest:gas"
+      },
+      "total_volatile_organic_compounds": {
+        "default": "mdi:blur"
+      },
+      "humidity": {
+        "default": "mdi:water-percent"
+      },
+      "time_remaining": {
+        "default": "mdi:timer"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "default": "paptest:child_lock_button",
+        "state": {
+          "on": "paptest:child_lock_button",
+          "off": "paptest:child_lock_button_open"
+        }
+      },
+      "beep": {
+        "default": "mdi:volume-high",
+        "state": {
+          "on": "mdi:volume-high",
+          "off": "mdi:volume-off"
+        }
+      },
+      "standby_sensors": {
+        "default": "mdi:power-settings"
+      },
+      "auto_plus": {
+        "default": "mdi:format-annotation-plus"
+      },
+      "auto_quickdry_mode": {
+        "default": "mdi:clock-fast"
+      },
+      "quickdry_mode": {
+        "default": "mdi:clock-fast"
+      }
+    },
+    "light": {
+      "display_backlight": {
+        "default": "paptest:light_dimming_button"
+      },
+      "light_brightness": {
+        "default": "mdi:circle-outline"
+      }
+    },
+    "select": {
+      "function": {
+        "default": "paptest:mode",
+        "state": {
+          "purification": "paptest:purification_only_mode",
+          "purification_humidification": "paptest:two_in_one_mode",
+          "fan": "paptest:clean",
+          "circulation": "paptest:circulate",
+          "heating": "paptest:heating"
+        }
+      },
+      "lamp_mode": {
+        "default": "paptest:light_function",
+        "state": {
+          "off": "paptest:light_function",
+          "air_quality": "paptest:light_function",
+          "ambient_light_mode": "paptest:light_function",
+          "humidity": "paptest:light_function"
+        }
+      },
+      "ambient_light_mode": {
+        "default": "paptest:ambient_light",
+        "state": {
+          "off": "paptest:ambient_light",
+          "warm": "paptest:ambient_light",
+          "dawn": "paptest:ambient_light",
+          "calm": "paptest:ambient_light",
+          "breath": "paptest:ambient_light"
+        }
+      },
+      "preferred_index": {
+        "state": {
+          "indoor_allergen_index": "paptest:iai",
+          "pm25": "paptest:pm25b",
+          "gas": "paptest:gas"
+        }
+      },
+      "timer": {
+        "default": "mdi:clock-plus",
+        "state": {
+          "off": "mdi:clock-plus",
+          "30min": "mdi:clock-time-one",
+          "1h": "mdi:clock-time-one",
+          "2h": "mdi:clock-time-two",
+          "3h": "mdi:clock-time-three",
+          "4h": "mdi:clock-time-four",
+          "5h": "mdi:clock-time-five",
+          "6h": "mdi:clock-time-six",
+          "7h": "mdi:clock-time-seven",
+          "8h": "mdi:clock-time-eight",
+          "9h": "mdi:clock-time-nine",
+          "10h": "mdi:clock-time-ten",
+          "11h": "mdi:clock-time-eleven",
+          "12h": "mdi:clock-time-twelve"
+        }
+      }
+    },
+    "number": {
+      "oscillaton": {
+        "default": "paptest:oscillate"
+      },
+      "target_temp": {
+        "default": "mdi:thermometer"
+      }
+    }
+  }
+}

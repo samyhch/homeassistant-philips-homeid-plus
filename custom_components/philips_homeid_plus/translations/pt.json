@@ -1,0 +1,748 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Adicionar dispositivo Philips",
+        "description": "Escolha como configurar o seu dispositivo. Introduza um IP local para dispositivos na sua rede ou inicie sessão com a sua conta Philips para dispositivos com relé na cloud (FUSION) sem ligação local.",
+        "menu_options": {
+          "manual_host": "Configurar um dispositivo local por endereço IP",
+          "cloud_email": "Iniciar sessão com conta Philips (relé na cloud / dispositivos FUSION)"
+        }
+      },
+      "manual_host": {
+        "title": "Introduzir IP do dispositivo",
+        "description": "Introduza o endereço IP do seu dispositivo Philips.",
+        "data": {
+          "host": "Endereço IP",
+          "model": "Modelo"
+        }
+      },
+      "cloud_email": {
+        "title": "Login conta Philips",
+        "description": "Introduza o email da sua conta Philips HomeID. Um código de verificação será enviado.",
+        "data": {
+          "email": "Email",
+          "manual_entry": "Introduzir credenciais manualmente"
+        }
+      },
+      "cloud_otp": {
+        "title": "Introduzir código de verificação",
+        "description": "Um código de verificação foi enviado para {email}.",
+        "data": {
+          "code": "Código de verificação"
+        }
+      },
+      "cloud_devices": {
+        "title": "Selecionar dispositivo",
+        "description": "Selecione o dispositivo a adicionar.",
+        "data": {
+          "device": "Dispositivo"
+        }
+      },
+      "confirm": {
+        "title": "Confirmar dispositivo",
+        "description": "Adicionar {name} em {host}?\n\nModelo: {model}"
+      },
+      "zeroconf_confirm": {
+        "title": "Dispositivo Philips descoberto",
+        "description": "Dispositivo Philips descoberto:\n\n**{name}**\nIP: {host}\nModelo: {model}"
+      },
+      "ssdp_confirm": {
+        "title": "Dispositivo Philips descoberto",
+        "description": "Dispositivo Philips descoberto:\n\n**{name}**\nIP: {host}\nModelo: {model}"
+      },
+      "manual_credentials": {
+        "title": "Credenciais para {name}",
+        "description": "Introduza as credenciais extraídas da app HomeID.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "Chave de encriptação (necessária para dispositivos HTTP)"
+        }
+      },
+      "reauth_email": {
+        "title": "Login na nuvem necessário",
+        "description": "Login na nuvem é necessário para reconectar este dispositivo. Insira seu e-mail Philips HomeID.",
+        "data": {
+          "email": "E-mail"
+        }
+      },
+      "reauth_otp": {
+        "title": "Insira o código de verificação",
+        "description": "Um código de verificação foi enviado para {email}",
+        "data": {
+          "code": "Código de verificação"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Falha ao ligar ao dispositivo",
+      "missing_credentials": "Client ID e Client Secret são obrigatórios",
+      "invalid_credentials": "Credenciais inválidas",
+      "encryption_key_failed": "Não foi possível obter chave de encriptação",
+      "unknown": "Erro inesperado",
+      "missing_email": "Introduza o email",
+      "missing_code": "Introduza o código de verificação",
+      "otp_send_failed": "Falha ao enviar código de verificação",
+      "otp_failed": "Código de verificação inválido",
+      "account_not_registered": "Este email não é uma conta Philips HomeID totalmente registada. Inicie sessão uma vez na aplicação Philips HomeID com este email e tente novamente, ou recomece e introduza as credenciais manualmente.",
+      "no_cloud_devices": "Nenhum dispositivo encontrado na sua conta Philips",
+      "cloud_credentials_not_found": "Não foi possível obter credenciais da cloud",
+      "cloud_no_ip": "Endereço IP não disponível",
+      "cloud_oauth_failed": "Falha na autenticação em nuvem. Verifique os registos do Home Assistant para mais detalhes. Também pode inserir as credenciais manualmente.",
+      "cloud_unreachable": "A cloud da Philips está temporariamente indisponível. Aguarde um momento e tente novamente.",
+      "cloud_profile_error": "O servidor Philips HomeID devolveu um erro para a sua conta. Abra a aplicação Philips HomeID, remova o dispositivo e emparelhe-o novamente mesmo que ainda apareça, e tente de novo. O erro também pode ser temporário, por isso aguardar alguns minutos pode ajudar.",
+      "invalid_host": "Indique apenas um endereço IP ou nome de host (sem esquema, porta ou caminho)."
+    },
+    "abort": {
+      "already_configured": "Dispositivo já configurado",
+      "already_in_progress": "O processo de configuração já está a decorrer",
+      "cannot_connect": "Não é possível ligar ao dispositivo",
+      "unsupported_device": "Este dispositivo Philips não é suportado pela integração e foi ignorado.",
+      "reauth_successful": "Login na nuvem bem-sucedido.",
+      "reauth_entry_missing": "Não foi possível encontrar a entrada da integração para reautenticar. Recarregue o Home Assistant e tente novamente."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Intervalo de consulta (segundos)",
+          "active_scan_interval": "Intervalo ativo durante cozedura (segundos)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "Índice de ar interior"
+      },
+      "tvoc": {
+        "name": "COV total"
+      },
+      "gas": {
+        "name": "Nível de gás"
+      },
+      "allergen_index": {
+        "name": "Índice de alergénios"
+      },
+      "humidity": {
+        "name": "Humidade"
+      },
+      "temperature": {
+        "name": "Temperatura"
+      },
+      "filter_pre": {
+        "name": "Pré-filtro"
+      },
+      "filter_hepa": {
+        "name": "Filtro HEPA"
+      },
+      "filter_carbon": {
+        "name": "Filtro de carbono"
+      },
+      "filter_wick": {
+        "name": "Pavio humidificador"
+      },
+      "water_level": {
+        "name": "Nível de água"
+      },
+      "display_brightness": {
+        "name": "Brilho do ecrã"
+      },
+      "runtime": {
+        "name": "Tempo total"
+      },
+      "mode": {
+        "name": "Modo"
+      },
+      "fan_speed": {
+        "name": "Velocidade do ventilador"
+      },
+      "error_code": {
+        "name": "Código de erro"
+      },
+      "muji_filter0_lifetime": {
+        "name": "Vida útil de limpeza do filtro"
+      },
+      "muji_filter1_lifetime": {
+        "name": "Vida útil de substituição do filtro"
+      },
+      "muji_filter0_remaining": {
+        "name": "Limpeza do filtro restante"
+      },
+      "muji_filter1_remaining": {
+        "name": "Substituição do filtro restante"
+      },
+      "airfryer_status": {
+        "name": "Estado de cozedura",
+        "state": {
+          "standby": "Em espera",
+          "idle": "Inativo",
+          "setting": "Configuração",
+          "cooking": "A cozinhar",
+          "pause": "Em pausa",
+          "finish": "Concluído",
+          "pairing": "Emparelhamento",
+          "precook": "Preparação",
+          "parasetting": "A ajustar definições",
+          "maintain": "A manter quente",
+          "user_action": "Ação necessária",
+          "powersave": "Poupança de energia",
+          "mainmenu": "Menu principal"
+        }
+      },
+      "airfryer_temperature": {
+        "name": "Temperatura alvo"
+      },
+      "airfryer_current_temperature": {
+        "name": "Temperatura atual"
+      },
+      "airfryer_time_total": {
+        "name": "Tempo total"
+      },
+      "airfryer_time_remaining": {
+        "name": "Tempo restante"
+      },
+      "airfryer_preset": {
+        "name": "Preset"
+      },
+      "airfryer_recipe_name": {
+        "name": "Receita"
+      },
+      "airfryer_error": {
+        "name": "Código de erro"
+      },
+      "airfryer_preheat_status": {
+        "name": "Pré-aquecimento"
+      },
+      "airfryer_keep_warm": {
+        "name": "Manter quente"
+      },
+      "airfryer_recipe_id": {
+        "name": "ID da receita"
+      },
+      "airfryer_step_id": {
+        "name": "ID do passo"
+      },
+      "airfryer_airspeed": {
+        "name": "Velocidade do ar"
+      },
+      "airfryer_probe_temperature": {
+        "name": "Temperatura da sonda"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "Temperatura atual da sonda"
+      },
+      "airfryer_dialog": {
+        "name": "Diálogo",
+        "state": {
+          "none": "Nenhuma",
+          "close_drawer": "Feche a gaveta"
+        }
+      },
+      "airfryer_previous_status": {
+        "name": "Estado anterior",
+        "state": {
+          "standby": "Em espera",
+          "idle": "Inativo",
+          "setting": "Configuração",
+          "cooking": "A cozinhar",
+          "pause": "Em pausa",
+          "finish": "Concluído",
+          "pairing": "Emparelhamento",
+          "precook": "Preparação",
+          "parasetting": "A ajustar definições",
+          "maintain": "A manter quente",
+          "user_action": "Ação necessária",
+          "powersave": "Poupança de energia",
+          "mainmenu": "Menu principal"
+        }
+      },
+      "airfryer_cooking_id": {
+        "name": "ID de cozedura"
+      },
+      "airfryer_current_stage": {
+        "name": "Etapa atual"
+      },
+      "airfryer_voltage": {
+        "name": "Tensão"
+      },
+      "airfryer_left_status": {
+        "name": "Estado cesto esquerdo"
+      },
+      "airfryer_left_temperature": {
+        "name": "Temperatura cesto esquerdo"
+      },
+      "airfryer_left_time": {
+        "name": "Tempo cesto esquerdo"
+      },
+      "airfryer_right_status": {
+        "name": "Estado cesto direito"
+      },
+      "airfryer_right_temperature": {
+        "name": "Temperatura cesto direito"
+      },
+      "airfryer_right_time": {
+        "name": "Tempo cesto direito"
+      },
+      "multicooker_humidity": {
+        "name": "Humidade"
+      },
+      "multicooker_ingredient": {
+        "name": "Ingrediente"
+      },
+      "autocook_uuid": {
+        "name": "Programa AutoCook"
+      },
+      "autocook_doneness": {
+        "name": "Ponto de cozedura"
+      },
+      "autocook_amount": {
+        "name": "Quantidade"
+      },
+      "autocook_weight": {
+        "name": "Peso"
+      },
+      "autocook_thickness": {
+        "name": "Espessura"
+      },
+      "recipe_current_stage": {
+        "name": "Etapa atual da receita"
+      },
+      "firmware_version": {
+        "name": "Versão firmware"
+      },
+      "firmware_available": {
+        "name": "Firmware disponível"
+      },
+      "espresso_mainstate": {
+        "name": "Estado da máquina",
+        "state": {
+          "undefined": "Indefinido",
+          "standby": "Em espera",
+          "ready": "Pronta",
+          "brewing": "A preparar",
+          "processing": "A processar",
+          "action_required": "Ação necessária",
+          "error": "Erro",
+          "suspended": "Suspensa",
+          "unknown": "Desconhecido",
+          "out_of_order": "Fora de serviço"
+        }
+      },
+      "espresso_brewing_progress": {
+        "name": "Progresso da extração"
+      },
+      "espresso_water_level": {
+        "name": "Nível de água"
+      },
+      "espresso_descale_status": {
+        "name": "Estado descalcificação"
+      },
+      "espresso_filter_status": {
+        "name": "Estado do filtro"
+      },
+      "espresso_filter_number": {
+        "name": "Número do filtro"
+      },
+      "espresso_waste_bean": {
+        "name": "Bandeja de borras"
+      },
+      "espresso_switch_state": {
+        "name": "Estado interruptor"
+      },
+      "espresso_last_error": {
+        "name": "Último erro"
+      },
+      "espresso_active_user": {
+        "name": "Utilizador ativo"
+      },
+      "espresso_water_hardness": {
+        "name": "Dureza da água"
+      },
+      "espresso_auto_standby_time": {
+        "name": "Tempo standby automático"
+      },
+      "rita_machine_state": {
+        "name": "Estado da máquina",
+        "state": {
+          "not_used": "Não utilizado",
+          "brewing": "A preparar",
+          "action_required": "Ação necessária",
+          "unrecoverable_error": "Erro irrecuperável"
+        }
+      },
+      "rita_machine_status": {
+        "name": "Estado operativo",
+        "state": {
+          "not_used": "Não utilizado",
+          "running": "Em funcionamento",
+          "suspended_alarm": "Suspensa por alarme",
+          "suspended_resumable": "Suspensa, pode retomar",
+          "finishing_successfully": "A terminar com sucesso",
+          "finishing_unsuccessfully": "A terminar sem sucesso"
+        }
+      },
+      "rita_machine_extra_info": {
+        "name": "Informação adicional",
+        "state": {
+          "not_used": "Não utilizado",
+          "bean_lack": "Sem grãos",
+          "water_lack": "Sem água",
+          "ground_container_full": "Recipiente de borras cheio",
+          "brew_unit_missing": "Grupo café em falta",
+          "water_container_should_be_removed": "Retire o depósito de água",
+          "drip_tray_removed": "Tabuleiro de gotejamento removido",
+          "door_open": "Porta aberta",
+          "ground_container_removed": "Recipiente de borras removido",
+          "masterpiece_alarm": "Alarme Masterpiece",
+          "user_abort_or_suspend_timeout": "Cancelado pelo utilizador ou pausa expirada",
+          "brew_abort_refill_required": "Preparação cancelada, é necessário reabastecer",
+          "brew_abort_heater_fail": "Preparação cancelada, falha do aquecedor",
+          "brew_abort_bu_fail": "Preparação cancelada, falha do grupo café",
+          "brew_abort_grinder_fail": "Preparação cancelada, falha do moinho",
+          "error_1": "Erro 1",
+          "error_2": "Erro 2",
+          "error_3": "Erro 3",
+          "error_4": "Erro 4",
+          "error_5": "Erro 5",
+          "error_10": "Erro 10",
+          "error_11": "Erro 11",
+          "error_14": "Erro 14",
+          "error_15": "Erro 15",
+          "error_19": "Erro 19",
+          "error_24": "Erro 24"
+        }
+      },
+      "rita_control_status": {
+        "name": "Estado de controlo",
+        "state": {
+          "machine_notification": "Notificação da máquina",
+          "no_error": "Sem erros",
+          "invalid_command": "Comando inválido",
+          "non_existent_or_invalid_recipe": "Receita inexistente ou inválida",
+          "machine_busy": "Máquina ocupada",
+          "machine_in_alarm_or_error_state": "Máquina em alarme ou erro",
+          "profiles_full": "Perfis cheios",
+          "unavailable_color": "Cor indisponível",
+          "invalid_profile_name": "Nome de perfil inválido",
+          "no_recipe_selected": "Nenhuma receita selecionada",
+          "recipes_full": "Receitas cheias",
+          "invalid_recipe_name": "Nome de receita inválido",
+          "invalid_profile_id": "ID de perfil inválido",
+          "invalid_profile_order": "Ordem de perfil inválida",
+          "invalid_barista_assistant_settings": "Definições do Barista Assistant inválidas"
+        }
+      },
+      "rita_bean_type": {
+        "name": "Tipo de grão",
+        "state": {
+          "arabica": "Arábica",
+          "mix": "Mistura",
+          "other": "Outro"
+        }
+      },
+      "rita_roast_level": {
+        "name": "Nível de torra",
+        "state": {
+          "light": "Claro",
+          "medium": "Médio",
+          "dark": "Escuro"
+        }
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "Número de filtro AquaClean"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "Autonomia AquaClean"
+      },
+      "rita_descale_autonomy": {
+        "name": "Autonomia descalcificação"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Autonomia café"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Autonomia grupo café"
+      },
+      "ncp_firmware_version": {
+        "name": "Versão de firmware NCP"
+      },
+      "host_firmware_version": {
+        "name": "Versão de firmware anfitrião"
+      },
+      "product_error": {
+        "name": "Erro do produto"
+      },
+      "ota_state": {
+        "name": "Estado da atualização de firmware",
+        "state": {
+          "no_download": "Sem transferência",
+          "ncp_download_in_progress": "A transferir firmware NCP",
+          "host_download_in_progress": "A transferir firmware anfitrião",
+          "host_download_paused": "Transferência do firmware anfitrião em pausa",
+          "ncp_validating": "A validar firmware NCP",
+          "host_validating": "A validar firmware anfitrião"
+        }
+      },
+      "device_name": {
+        "name": "Nome do dispositivo"
+      },
+      "device_serial": {
+        "name": "Número de série"
+      },
+      "device_ctn": {
+        "name": "Número do modelo"
+      },
+      "espresso_bean_level": {
+        "name": "Nível de grãos"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "Substituição de filtro necessária"
+      },
+      "water_tank_empty": {
+        "name": "Tanque de água vazio"
+      },
+      "airfryer_drawer_open": {
+        "name": "Gaveta"
+      },
+      "airfryer_shake_reminder": {
+        "name": "Lembrete agitar"
+      },
+      "airfryer_flip_reminder": {
+        "name": "Lembrete virar"
+      },
+      "airfryer_preheat_active": {
+        "name": "Pré-aquecimento ativo"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "Sonda desligada"
+      },
+      "airfryer_probe_required": {
+        "name": "Sonda necessária"
+      },
+      "airfryer_resting": {
+        "name": "Em repouso"
+      },
+      "multicooker_lid_open": {
+        "name": "Tampa"
+      },
+      "multicooker_no_water": {
+        "name": "Sem água"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "Gaveta esquerda"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "Gaveta direita"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "Unidade Fahrenheit"
+      },
+      "firmware_update_available": {
+        "name": "Atualização de firmware disponível"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "Iniciar"
+      },
+      "airfryer_pause": {
+        "name": "Pausar"
+      },
+      "airfryer_stop": {
+        "name": "Parar"
+      },
+      "airfryer_keep_warm": {
+        "name": "Manter quente"
+      },
+      "airfryer_refresh_recipe": {
+        "name": "Atualizar receitas"
+      },
+      "rita_brew": {
+        "name": "Preparar receita guardada"
+      },
+      "rita_brew_builtin": {
+        "name": "Preparar bebida predefinida"
+      },
+      "rita_abort_brew": {
+        "name": "Cancelar preparação"
+      },
+      "rita_resume_brew": {
+        "name": "Retomar preparação"
+      },
+      "rita_skip_step": {
+        "name": "Saltar passo"
+      },
+      "rita_brew_hot_water": {
+        "name": "Água quente"
+      },
+      "airfryer_autocook_send": {
+        "name": "Enviar programa AutoCook"
+      },
+      "espresso_brew_coffee": {
+        "name": "Preparar café"
+      },
+      "espresso_brew_espresso": {
+        "name": "Preparar espresso"
+      },
+      "muji_reset_filter_clean": {
+        "name": "Repor temporizador de limpeza do filtro"
+      },
+      "muji_reset_filter_replace": {
+        "name": "Repor temporizador de substituição do filtro"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "Definir temperatura"
+      },
+      "airfryer_set_time": {
+        "name": "Definir tempo"
+      },
+      "airfryer_set_airspeed": {
+        "name": "Definir velocidade do ar"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "Definir temperatura da sonda"
+      },
+      "set_beep_volume": {
+        "name": "Volume do sinal"
+      },
+      "set_air_quality_threshold": {
+        "name": "Limite qualidade do ar"
+      },
+      "set_keep_warm_time": {
+        "name": "Duração manter quente"
+      },
+      "set_keep_warm_temp": {
+        "name": "Temperatura manter quente"
+      },
+      "espresso_grinder_dose": {
+        "name": "Dose de moagem"
+      },
+      "espresso_brew_temperature": {
+        "name": "Temperatura de extração"
+      },
+      "espresso_brew_count": {
+        "name": "Número de extrações"
+      },
+      "espresso_primary_dose": {
+        "name": "Dose principal"
+      },
+      "espresso_secondary_dose": {
+        "name": "Dose secundária"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "Método de cozedura",
+        "state": {
+          "manual": "Manual",
+          "frozen_snacks": "Snacks congelados",
+          "fresh_fries": "Batatas frescas",
+          "chicken": "Frango",
+          "fish": "Peixe",
+          "muffins_cake": "Muffins/Bolo",
+          "meat_chops": "Costeletas",
+          "vegetables": "Vegetais",
+          "keep_warm": "Manter quente",
+          "auto_cook": "Cozedura automática",
+          "recipe": "Receita",
+          "no_selection": "Sem seleção",
+          "air_steam": "Vapor ar",
+          "steaming": "Vapor",
+          "roast": "Assar",
+          "bake": "Cozer",
+          "slow_cook": "Cozedura lenta",
+          "defrost": "Descongelar",
+          "reheat": "Reaquecer",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Vapor ar Pro",
+          "stew": "Estufado",
+          "user_preset": "Predefinição",
+          "easy_clean": "Limpeza fácil"
+        }
+      },
+      "my_preset": {
+        "name": "As minhas predefinições"
+      },
+      "rita_roast_level_select": {
+        "name": "Nível de torra",
+        "state": {
+          "light": "Claro",
+          "medium": "Médio",
+          "dark": "Escuro"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Tipo de grão",
+        "state": {
+          "arabica": "Arábica",
+          "mix": "Mistura",
+          "other": "Outro"
+        }
+      },
+      "rita_brew_profile_select": {
+        "name": "Perfil de preparação"
+      },
+      "rita_brew_recipe_select": {
+        "name": "Receita guardada"
+      },
+      "rita_builtin_drink_select": {
+        "name": "Bebida predefinida"
+      },
+      "autocook_program": {
+        "name": "Programa AutoCook"
+      },
+      "operation_mode": {
+        "name": "Modo de funcionamento",
+        "state": {
+          "auto": "Automático",
+          "gentle": "Suave",
+          "medium": "Médio",
+          "fast": "Rápido",
+          "sleep": "Noite",
+          "turbo": "Turbo"
+        }
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "Bloqueio infantil"
+      },
+      "preheat": {
+        "name": "Pré-aquecimento"
+      },
+      "sensor_monitor_standby": {
+        "name": "Monitor sensor em standby"
+      },
+      "power": {
+        "name": "Energia"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "Purificador de ar"
+      }
+    }
+  }
+}
