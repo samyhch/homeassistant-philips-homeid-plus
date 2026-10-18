@@ -31,6 +31,18 @@ Copy `custom_components/philips_homeid_plus` into the `custom_components` direct
 
 Uses the HomeID integration foundation for compatible local devices and supported HomeID cloud-relay devices.
 
+Explicit built-in Airfryer model profiles:
+
+- HD9200
+- HD9255
+- HD9280
+- HD9285
+- HD9875
+- HD9876
+- HD9880
+
+HomeID may also discover additional compatible appliances through its generic local or cloud-relay paths. Those models should be reported with diagnostics so they can be added to the verified list.
+
 ### Pet Series feeders
 
 Pet Series devices use the HomeID account session. A single HomeID sign-in can discover the compatible feeders associated with that account. The integration exposes feeder controls, status sensors, schedules, diagnostics, and the entities supported by the adapted Pet Series implementation.
@@ -40,9 +52,22 @@ The initial tested feeder models are:
 - PAW3320/02
 - PAW5320/02
 
+The adapted Pet Series code also contains compatibility handling for the PAW3300 family, but it is not part of the initial verified test set.
+
 ### Air purifiers and humidifiers
 
 Compatible devices communicate directly over the local network using encrypted CoAP. Availability depends on the model, firmware, and local network connectivity. Some Philips firmware versions may stop responding to CoAP until the device is power-cycled.
+
+Built-in air-treatment model profiles:
+
+- **AC series:** AC0850/11, AC0850/20, AC0850/31, AC0850/41, AC0850/70, AC0850/81, AC0850/85, AC0950, AC0951, AC1214, AC1715, AC2210, AC2220, AC2221, AC2729, AC2889, AC2936, AC2939, AC2958, AC2959, AC3021, AC3033, AC3036, AC3039, AC3055, AC3059, AC3210, AC3220, AC3221, AC3259, AC3360/11, AC3420, AC3421, AC3737, AC3829, AC3836, AC3854/50, AC3854/51, AC3858/50, AC3858/51, AC3858/83, AC3858/86, AC4220, AC4221, AC4231, AC4236, AC4550, AC4558, AC5659, AC5660
+- **AMF series:** AMF765, AMF870
+- **CX series:** CX3120, CX3550, CX5120
+- **HU series:** HU1509, HU1510, HU4209, HU4210, HU5710
+
+Some AC0850 variants advertise an `AWS_Philips_AIR` or `AWS_Philips_AIR_Combo` identifier; both identifiers are included in the integration's model mapping.
+
+This list means that a model profile exists in the integration. Exact entities and controls vary by model and firmware, and not every listed model has been physically verified by this project's maintainer.
 
 ## Upgrading from the original integrations
 
