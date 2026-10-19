@@ -118,6 +118,20 @@ class BackendDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result["loaded"])
         self.assertEqual(result["backend"], "local_coap")
 
+    async def test_account_diagnostics_export_counts_without_credentials(self):
+        self.entry.data = {"is_homeid_account": True, "cloud_refresh_token": "secret"}
+        coordinator = SimpleNamespace(
+            data={"discovered_devices": 3, "configured_devices": 2},
+            last_update_success=True,
+        )
+        hass = SimpleNamespace(data={"philips_homeid_plus": {
+            "entry": {"account_coordinator": coordinator},
+        }})
+        result = await self.diagnostics.async_get_config_entry_diagnostics(hass, self.entry)
+        self.assertEqual(result["inventory"]["discovered_devices"], 3)
+        self.assertTrue(result["loaded"])
+        self.assertNotIn("secret", str(result))
+
     async def test_pet_export_excludes_camera_credentials_and_recorder_config(self):
         ha_diagnostics = ModuleType("homeassistant.components.diagnostics")
         ha_diagnostics.async_redact_data = lambda data, keys: data

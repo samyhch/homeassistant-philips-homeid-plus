@@ -22,6 +22,12 @@ class FlowBase:
     def async_show_form(self, **kwargs):
         return {"type": "form", **kwargs}
 
+    def async_abort(self, **kwargs):
+        return {"type": "abort", **kwargs}
+
+    def async_create_entry(self, **kwargs):
+        return {"type": "create_entry", **kwargs}
+
 
 def load_module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -166,3 +172,61 @@ class SavedAccountFlowTests(unittest.IsolatedAsyncioTestCase):
         result = await self.flow.async_step_saved_account({"account": "first"})
         self.assertEqual(result["errors"], {"base": "cloud_unreachable"})
         self.api.close.assert_awaited_once()
+
+    async def test_account_manager_uses_live_token_without_changing_devices(self):
+        self.flow._saved_account_entry_id = "first"
+        self.flow._cloud_tokens = {"refresh_token": "stale"}
+        self.flow._set_unique_id_or_abort = AsyncMock()
+        before = [dict(entry.data) for entry in self.entries]
+        result = await self.flow.async_step_account_hub({"name": "My HomeID"})
+        self.assertEqual(result["type"], "create_entry")
+        self.assertTrue(result["data"]["is_homeid_account"])
+        self.assertEqual(result["data"]["cloud_refresh_token"], "first-token")
+        self.assertEqual(result["title"], "My HomeID")
+        self.assertEqual([entry.data for entry in self.entries], before)
+        self.assertTrue(self.flow._set_unique_id_or_abort.call_args.args[0].startswith("homeid_account_"))
+
+    async def test_account_manager_duplicate_is_rejected(self):
+        self.flow._saved_account_entry_id = "first"
+        self.entries.append(SimpleNamespace(
+            entry_id="hub", data={"is_homeid_account": True, "cloud_refresh_token": "first-token"}
+        ))
+        result = await self.flow.async_step_account_hub({"name": "Duplicate"})
+        self.assertEqual(result, {"type": "abort", "reason": "already_configured"})
+
+    async def test_removed_source_cannot_create_hub_with_stale_dialog_token(self):
+        self.flow._saved_account_entry_id = "removed"
+        self.flow._cloud_tokens = {"refresh_token": "old-token"}
+        result = await self.flow.async_step_account_hub({"name": "Stale"})
+        self.assertEqual(result["reason"], "cloud_credentials_not_found")
+
+    async def test_account_manager_requires_name_and_token(self):
+        self.flow._cloud_tokens = {"refresh_token": "first-token"}
+        result = await self.flow.async_step_account_hub({"name": " "})
+        self.assertEqual(result["errors"], {"base": "account_name_required"})
+        self.flow._cloud_tokens = {}
+        result = await self.flow.async_step_account_hub({"name": "Missing"})
+        self.assertEqual(result["reason"], "cloud_credentials_not_found")
+
+    async def test_account_discovery_rejects_other_domains_and_disabled_entries(self):
+        registry = SimpleNamespace(async_get_entry=Mock())
+        self.flow.hass.config_entries = registry
+        for entry in (
+            None,
+            SimpleNamespace(domain="another", data={"is_homeid_account": True}, disabled_by=None),
+            SimpleNamespace(domain="philips_homeid_plus", data={}, disabled_by=None),
+            SimpleNamespace(domain="philips_homeid_plus",
+                            data={"is_homeid_account": True}, disabled_by="user"),
+        ):
+            registry.async_get_entry.return_value = entry
+            result = await self.flow.async_step_integration_discovery({"account_entry_id": "hub"})
+            self.assertEqual(result["reason"], "account_unavailable")
+
+    async def test_account_discovery_routes_to_requested_hub(self):
+        entry = SimpleNamespace(entry_id="hub", domain="philips_homeid_plus",
+                                data={"is_homeid_account": True}, disabled_by=None)
+        self.flow.hass.config_entries = SimpleNamespace(async_get_entry=Mock(return_value=entry))
+        self.flow.async_step_saved_account = AsyncMock(return_value={"type": "device_selection"})
+        result = await self.flow.async_step_integration_discovery({"account_entry_id": "hub"})
+        self.assertEqual(result["type"], "device_selection")
+        self.flow.async_step_saved_account.assert_awaited_once_with({"account": "hub"})

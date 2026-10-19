@@ -126,3 +126,26 @@ class AccountSessionTests(unittest.IsolatedAsyncioTestCase):
         await self.sessions.homeid_tokens(self.hass, self.first)
         await self.sessions.homeid_tokens(self.hass, self.first)
         self.assertEqual(self.api.refresh_tokens.await_count, 2)
+
+    def test_account_hub_is_preferred_over_device_entry_for_same_session(self):
+        hub = self.entry("hub", "original")
+        hub.data["is_homeid_account"] = True
+        result = self.sessions.saved_homeid_sessions([*self.entries, hub])
+        self.assertEqual(result[0].entry_id, "hub")
+        self.assertEqual(len(result), 2)
+
+    def test_reauthentication_updates_only_the_shared_homeid_session(self):
+        self.sessions.save_reauthenticated_session(self.hass, self.first, {
+            "refresh_token": "reauthenticated", "access_token": "new-access",
+        })
+        self.assertEqual(self.first.data["cloud_refresh_token"], "reauthenticated")
+        self.assertEqual(self.second.data["cloud_refresh_token"], "reauthenticated")
+        self.assertEqual(self.other.data["cloud_refresh_token"], "other-token")
+        self.assertEqual(self.airplus.data["cloud_refresh_token"], "original")
+
+    async def test_rotation_is_persisted_before_client_cleanup_can_cancel(self):
+        self.api.close.side_effect = asyncio.CancelledError()
+        with self.assertRaises(asyncio.CancelledError):
+            await self.sessions.homeid_tokens(self.hass, self.first)
+        self.assertEqual(self.first.data["cloud_refresh_token"], "rotated")
+        self.assertEqual(self.second.data["cloud_refresh_token"], "rotated")

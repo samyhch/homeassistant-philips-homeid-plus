@@ -91,6 +91,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Philips HomeID from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
+    if entry.data.get("is_homeid_account"):
+        from .account_hub import async_setup_entry as setup_account
+
+        return await setup_account(hass, entry)
+
     if entry.data.get(CONF_IS_AIRPURIFIER_COAP):
         from .airpurifier import async_setup_entry as setup_airpurifier
 
@@ -137,7 +142,12 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     # APK uses Gigya CDC tokens for DaConnect MQTT (confirmed 2026-03-27).
     cloud_api = PhilipsCloudAPI()
     try:
-        tokens = await cloud_api.refresh_tokens(refresh_token, oauth_client)
+        if oauth_client == OAUTH_CLIENT_HOMEID:
+            from .account_session import homeid_tokens
+
+            tokens = await homeid_tokens(hass, entry)
+        else:
+            tokens = await cloud_api.refresh_tokens(refresh_token, oauth_client)
         access_token = tokens["access_token"]
         new_refresh = tokens.get("refresh_token", refresh_token)
         if new_refresh != refresh_token:
@@ -217,7 +227,12 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
                 try:
                     rt = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
                     client = entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID)
-                    toks = await api.refresh_tokens(rt, client)
+                    if client == OAUTH_CLIENT_HOMEID:
+                        from .account_session import homeid_tokens
+
+                        toks = await homeid_tokens(hass, entry)
+                    else:
+                        toks = await api.refresh_tokens(rt, client)
                     new_rt = toks.get("refresh_token", rt)
                     if new_rt != rt:
                         new_data = {
@@ -576,6 +591,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     platform unload succeeded so we don't leak the paho thread or aiohttp
     session if HA reports an entity still in use.
     """
+    if entry.data.get("is_homeid_account"):
+        from .account_hub import async_unload_entry as unload_account
+
+        return await unload_account(hass, entry)
     if entry.data.get(CONF_IS_AIRPURIFIER_COAP):
         from .airpurifier import async_unload_entry as unload_airpurifier
 

@@ -161,6 +161,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> PhilipsHomeIDOptionsFlow:
         """Get the options flow handler."""
+        if config_entry.data.get("is_homeid_account"):
+            from .account_hub import HomeIDAccountOptionsFlow
+
+            return HomeIDAccountOptionsFlow()
         if config_entry.data.get("is_tuya_pet"):
             from .pet_series.options_flow import OptionsFlowHandler
             return OptionsFlowHandler()
@@ -181,6 +185,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # (source, record) pairs, source being "homeid", "iot" or "airplus"
         self._cloud_devices: list[tuple[str, dict[str, Any]]] = []
         self._skip_saved_session = False
+        self._saved_account_entry_id: str | None = None
 
     async def _close_cloud_api(self) -> None:
         """Close cloud API session if open."""
@@ -317,6 +322,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     tokens = await self._cloud_api.get_oidc_tokens(
                         session_token, client=oauth_client
                     )
+                    if oauth_client == OAUTH_CLIENT_HOMEID:
+                        from .account_session import save_reauthenticated_session
+
+                        if not tokens.get("refresh_token"):
+                            raise CloudConnectionError("HomeID did not return a refresh session")
+                        save_reauthenticated_session(self.hass, reauth_entry, tokens)
                     new_data = {
                         **reauth_entry.data,
                         CONF_CLOUD_REFRESH_TOKEN: tokens.get("refresh_token", ""),
@@ -653,12 +664,14 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self._close_cloud_api()
                 self._cloud_tokens = {}
                 self._cloud_devices = []
+                self._saved_account_entry_id = None
                 self._skip_saved_session = True
                 return await self.async_step_cloud_email()
             entry = next((item for item in sessions if item.entry_id == selected), None)
             if entry is None:
                 errors["base"] = "unknown"
             else:
+                self._saved_account_entry_id = entry.entry_id
                 await self._close_cloud_api()
                 self._cloud_api = PhilipsCloudAPI()
                 try:
@@ -918,6 +931,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None and self._cloud_api:
             selected = user_input.get("device")
+            if selected == "account_hub" and self._cloud_tokens.get("refresh_token"):
+                return await self.async_step_account_hub()
             if selected:
                 source = ""
                 device_data = None
@@ -947,6 +962,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Build device selection dropdown (use index as key for both sources)
         device_options: dict[str, str] = {}
+        if self._cloud_tokens.get("refresh_token"):
+            device_options["account_hub"] = "Manage this HomeID account"
         for idx, (source, dev) in enumerate(self._cloud_devices):
             if source == "homeid":
                 name = dev.get("name", "") or "Unknown"
@@ -970,6 +987,66 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required("device"): vol.In(device_options)}),
             errors=errors,
         )
+
+    async def async_step_account_hub(self, user_input=None) -> ConfigFlowResult:
+        """Create an account manager while retaining existing device entries."""
+        from uuid import uuid4
+
+        token = self._current_homeid_refresh_token()
+        # A sibling may have rotated the token while the dialog was open.
+        if not token:
+            await self._close_cloud_api()
+            return self.async_abort(reason="cloud_credentials_not_found")
+        if any(
+            entry.data.get("is_homeid_account")
+            and entry.data.get(CONF_CLOUD_REFRESH_TOKEN) == token
+            for entry in self._async_current_entries()
+        ):
+            await self._close_cloud_api()
+            return self.async_abort(reason="already_configured")
+        errors = {}
+        if user_input is not None:
+            name = str(user_input.get("name", "")).strip()
+            if name:
+                await self._set_unique_id_or_abort(f"homeid_account_{uuid4().hex}")
+                await self._close_cloud_api()
+                return self.async_create_entry(title=name, data={
+                    "is_homeid_account": True,
+                    CONF_CLOUD_REFRESH_TOKEN: token,
+                    CONF_OAUTH_CLIENT: OAUTH_CLIENT_HOMEID,
+                })
+            errors["base"] = "account_name_required"
+        return self.async_show_form(
+            step_id="account_hub",
+            data_schema=vol.Schema({vol.Required("name", default="HomeID account"): str}),
+            errors=errors,
+        )
+
+    def _current_homeid_refresh_token(self):
+        """Read the live entry token instead of the dialog's old token copy."""
+        source = next(
+            (entry for entry in self._async_current_entries()
+             if entry.entry_id == self._saved_account_entry_id),
+            None,
+        )
+        if source is not None:
+            return source.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+        if self._saved_account_entry_id is not None:
+            return ""
+        return self._cloud_tokens.get("refresh_token", "")
+
+    async def async_step_integration_discovery(self, discovery_info) -> ConfigFlowResult:
+        """Start device selection from a trusted, existing account entry."""
+        account_id = discovery_info.get("account_entry_id")
+        entry = self.hass.config_entries.async_get_entry(account_id)
+        if (
+            entry is None
+            or entry.domain != DOMAIN
+            or not entry.data.get("is_homeid_account")
+            or entry.disabled_by is not None
+        ):
+            return self.async_abort(reason="account_unavailable")
+        return await self.async_step_saved_account({"account": entry.entry_id})
 
     async def async_step_tuya_model(
         self,
@@ -1005,7 +1082,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Create a HomeID-token-backed Tuya feeder entry."""
         device_id = device_data.get("externalDeviceId", "")
-        if not device_id or not self._cloud_tokens.get("refresh_token"):
+        if not device_id or not self._current_homeid_refresh_token():
             return self.async_abort(reason="cloud_credentials_not_found")
         await self._set_unique_id_or_abort(normalize_unique_id(device_id))
         dp = "101" if model == "PAW3320" else "201"
@@ -1016,7 +1093,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_IS_TUYA_PET: True,
             CONF_TUYA_DEVICE_ID: device_id,
             CONF_TUYA_DP: dp,
-            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens["refresh_token"],
+            CONF_CLOUD_REFRESH_TOKEN: self._current_homeid_refresh_token(),
             CONF_OAUTH_CLIENT: OAUTH_CLIENT_HOMEID,
         }
         await self._close_cloud_api()
@@ -1103,7 +1180,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_CLIENT_ID: client_id,
             CONF_CLIENT_SECRET: client_secret,
             CONF_USE_HTTPS: use_https,
-            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
+            CONF_CLOUD_REFRESH_TOKEN: self._current_homeid_refresh_token(),
         }
 
         await self._close_cloud_api()
@@ -1158,7 +1235,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_CLIENT_ID: creds.get("client_id", ""),
             CONF_CLIENT_SECRET: creds.get("client_secret", ""),
             CONF_USE_HTTPS: use_https,
-            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
+            CONF_CLOUD_REFRESH_TOKEN: self._current_homeid_refresh_token(),
         }
         enc_key = creds.get("encryption_key")
         if enc_key:
@@ -1279,7 +1356,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_TENANT: FUSION_TENANT,
             CONF_MQTT_HOST: FUSION_MQTT_HOST,
             CONF_PLATFORM_REST_URL: FUSION_PLATFORM_REST_URL,
-            CONF_CLOUD_REFRESH_TOKEN: tokens.get("refresh_token", ""),
+            CONF_CLOUD_REFRESH_TOKEN: (
+                self._current_homeid_refresh_token()
+                if oauth_client == OAUTH_CLIENT_HOMEID
+                else tokens.get("refresh_token", "")
+            ),
             CONF_OAUTH_CLIENT: oauth_client,
         }
 

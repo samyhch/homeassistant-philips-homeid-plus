@@ -72,6 +72,15 @@ async def _async_collect_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Collect backend-specific diagnostics before final recursive redaction."""
+    if entry.data.get("is_homeid_account"):
+        runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        coordinator = runtime.get("account_coordinator") if runtime else None
+        return {
+            "backend": "homeid_account",
+            "loaded": coordinator is not None,
+            "inventory": coordinator.data if coordinator else {},
+            "last_update_success": coordinator.last_update_success if coordinator else False,
+        }
     if entry.data.get("is_airpurifier_coap"):
         runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id)
         result = {

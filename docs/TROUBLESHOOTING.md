@@ -59,7 +59,8 @@ excluded from exported diagnostics.
 - Local CoAP appliances and cloud-connected feeders use different transports;
   a cloud outage does not imply local CoAP should be unavailable.
 - Existing entries remain per-device. Shared HomeID session handling does not yet
-  provide an account hub with automatic addition/removal of every device.
+  automatically add or remove devices. The optional central account entry provides
+  inventory counts and starts device onboarding with the same saved session.
 - Cross-integration migration preserving entity registry identities requires a
   separately tested migration process. Removing and recreating entries can change
   entity IDs. Back up your configuration before migrating.

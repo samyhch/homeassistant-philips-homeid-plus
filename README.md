@@ -25,6 +25,23 @@ Current support includes:
 
 Copy `custom_components/philips_homeid_plus` into the `custom_components` directory of your Home Assistant configuration, then restart Home Assistant.
 
+## Central HomeID account
+
+After signing in (or selecting a saved session), choose **Manage this HomeID
+account** in the device selector and give the account a name. This creates an
+account entry with discovered/configured device counts. Its options menu can
+refresh the inventory or start adding devices using the saved HomeID session.
+Inventory refreshes automatically every 15 minutes.
+
+Existing appliance entries, entity IDs and history are retained. Configured-device
+count means appliance entries sharing this HomeID session; unrelated local CoAP
+devices and Air+ accounts are separate. Removing the account manager leaves
+existing device entries in place with their saved credentials.
+
+The account manager does not automatically provision or delete appliances.
+Continue each discovered device's setup to select its supported model and confirm
+its configuration. Authentication uses the existing HomeID email/OTP flow.
+
 ## Supported device paths
 
 ### HomeID appliances

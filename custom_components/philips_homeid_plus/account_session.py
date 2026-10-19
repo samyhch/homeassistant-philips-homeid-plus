@@ -16,7 +16,7 @@ def saved_homeid_sessions(entries):
     """
     seen = set()
     sessions = []
-    for entry in entries:
+    for entry in sorted(entries, key=lambda item: not item.data.get("is_homeid_account")):
         token = entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
         if (
             token
@@ -45,29 +45,45 @@ async def homeid_tokens(hass, entry):
         api = PhilipsCloudAPI()
         try:
             tokens = await api.refresh_tokens(current, OAUTH_CLIENT_HOMEID)
+            return _persist_tokens(hass, state, current, tokens)
         finally:
             await api.close()
-        # OAuth permits a refresh response to omit refresh_token. Callers that
-        # create entries still need the usable existing token in that case.
-        tokens = {**tokens, "refresh_token": tokens.get("refresh_token") or current}
-        replacement = tokens.get("refresh_token") or current
-        for other in hass.config_entries.async_entries(DOMAIN):
-            if (
-                other.data.get(CONF_CLOUD_REFRESH_TOKEN) == current
-                and other.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID) == OAUTH_CLIENT_HOMEID
-            ):
+
+
+def _persist_tokens(hass, state, current, response):
+    """Persist rotation before awaiting HTTP cleanup, even during cancellation."""
+    tokens = {**response, "refresh_token": response.get("refresh_token") or current}
+    replacement = tokens["refresh_token"]
+    for other in hass.config_entries.async_entries(DOMAIN):
+        if (
+            other.data.get(CONF_CLOUD_REFRESH_TOKEN) == current
+            and other.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID) == OAUTH_CLIENT_HOMEID
+        ):
+            if replacement != current:
                 hass.config_entries.async_update_entry(
                     other, data={**other.data, CONF_CLOUD_REFRESH_TOKEN: replacement}
                 )
-        try:
-            lifetime = int(tokens.get("expires_in", 300))
-        except (ValueError, TypeError):
-            lifetime = 0
-        ttl = max(0, min(lifetime - 60, 3000))
-        cached[replacement] = (time.monotonic() + ttl, tokens)
-        if replacement != current:
-            cached.pop(current, None)
-        return tokens
+    try:
+        lifetime = int(tokens.get("expires_in", 300))
+    except (ValueError, TypeError):
+        lifetime = 0
+    ttl = max(0, min(lifetime - 60, 3000))
+    cached = state.setdefault("tokens", {})
+    cached[replacement] = (time.monotonic() + ttl, tokens)
+    if replacement != current:
+        cached.pop(current, None)
+    return tokens
+
+
+def save_reauthenticated_session(hass, entry, tokens):
+    """Replace a shared HomeID session after the existing email/OTP flow."""
+    if entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID) != OAUTH_CLIENT_HOMEID:
+        raise ValueError("Cannot replace another OAuth audience as HomeID")
+    state = hass.data.setdefault(DOMAIN + "_accounts", {})
+    current = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+    if not current or not tokens.get("refresh_token"):
+        raise ValueError("A complete HomeID refresh session is required")
+    return _persist_tokens(hass, state, current, tokens)
 
 async def inspect_homeid_account(hass, entry):
     """Check HomeID discovery once; record only non-secret capability metadata."""
