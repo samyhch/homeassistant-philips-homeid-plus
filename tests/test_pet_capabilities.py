@@ -14,6 +14,15 @@ spec.loader.exec_module(capabilities)
 
 
 class PetCapabilitiesTests(unittest.TestCase):
+    def test_feed_register_is_model_specific_but_other_settings_are_unchanged(self):
+        for model in ("PAW3300", "PAW3320/02", " paw3320/02 "):
+            device = SimpleNamespace(product_ctn=model)
+            self.assertEqual(capabilities.command_datapoint(device, "201"), "101")
+            for dp in ("205", "231", "255"):
+                self.assertEqual(capabilities.command_datapoint(device, dp), dp)
+        for model in ("PAW5320/02", "", "future-model"):
+            self.assertEqual(capabilities.command_datapoint(SimpleNamespace(product_ctn=model), "201"), "201")
+
     def test_camera_less_model_and_regional_suffix(self):
         for model in ("PAW3320", "PAW3320/02", " paw3320/02 "):
             device = SimpleNamespace(product_ctn=model)

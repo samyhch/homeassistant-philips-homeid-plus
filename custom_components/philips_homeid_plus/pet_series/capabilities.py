@@ -3,14 +3,25 @@
 CAMERA_DATAPOINTS = frozenset({"103", "104", "105", "106", "108", "188", "134", "233"})
 
 
+def device_model(device):
+    """Return the normalized CTN without its regional suffix."""
+    return str(getattr(device, "product_ctn", "") or "").strip().upper().split("/")[0]
+
+
+def command_datapoint(device, dp_id):
+    """Use the essential feeder's quick-feed register for both feed controls."""
+    if str(dp_id) == "201" and device_model(device) in {"PAW3300", "PAW3320"}:
+        return "101"
+    return str(dp_id)
+
+
 def supports_camera(device):
     """Exclude the camera-less PAW3320; preserve unknown models' behavior.
 
     Do not infer missing hardware from an empty/transient cloud response.
     Product CTNs may include a regional suffix such as /02.
     """
-    model = str(getattr(device, "product_ctn", "") or "").strip().upper().split("/")[0]
-    return model != "PAW3320"
+    return device_model(device) != "PAW3320"
 
 
 def supports_datapoint(device, dp_id):

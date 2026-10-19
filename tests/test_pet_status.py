@@ -10,6 +10,39 @@ from unittest.mock import AsyncMock
 FOLDER = Path(__file__).resolve().parents[1] / "custom_components/philips_homeid_plus/pet_series"
 
 
+def load_action(filename, method, namespace):
+    """Load an actual action method without importing HA or device clients."""
+    tree = ast.parse((FOLDER / filename).read_text(encoding="utf-8-sig"))
+    function = next(node for node in ast.walk(tree) if isinstance(node, ast.AsyncFunctionDef)
+                    and node.name == method)
+    exec(compile(ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[])), filename, "exec"), namespace)
+    return namespace[method]
+
+
+class PetFeedCommandTests(unittest.IsolatedAsyncioTestCase):
+    async def test_button_and_number_send_same_model_specific_register(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("feed_capabilities", FOLDER / "capabilities.py")
+        capabilities = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(capabilities)
+        for model, expected in (("PAW3320/02", "101"), ("PAW5320/02", "201")):
+            device = SimpleNamespace(product_ctn=model, id="fixture", name="Fixture feeder")
+            client = SimpleNamespace(auth=SimpleNamespace(id_token="fixture"), publish_cloud_dps=AsyncMock())
+            coordinator = SimpleNamespace(tuya_device_id=lambda _: "fixture", async_request_refresh=AsyncMock())
+            entity = SimpleNamespace(_device=device, _client=client, coordinator=coordinator,
+                _dp_id=capabilities.command_datapoint(device, "201"), _scale=0, _attr_name="Fixture")
+            namespace = {"command_datapoint": capabilities.command_datapoint,
+                "_LOGGER": logging.getLogger(__name__), "HomeAssistantError": RuntimeError}
+            press = load_action("button.py", "async_press", namespace)
+            set_number = load_action("number.py", "async_set_native_value", namespace)
+            await press(entity)
+            client.publish_cloud_dps.assert_awaited_once_with("fixture", {expected: 1.0})
+            client.publish_cloud_dps.reset_mock()
+            await set_number(entity, 3)
+            client.publish_cloud_dps.assert_awaited_once_with("fixture", {expected: 3})
+            self.assertEqual(coordinator.async_request_refresh.await_count, 2)
+
+
 class PetStatusTests(unittest.IsolatedAsyncioTestCase):
     async def read_status(self, *, definition_error=False, status_error=False, fallback=None):
         tree = ast.parse((FOLDER / "__init__.py").read_text(encoding="utf-8-sig"))
