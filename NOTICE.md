@@ -1,9 +1,9 @@
 # Third-party notices
 
 Philips HomeID Plus combines and adapts code and design work from the projects
-listed below. The root BSD 2-Clause license applies to this project's original
-work and to the BSD-licensed HomeID-derived portions. Incorporated third-party
-portions remain subject to their respective notices and license terms.
+listed below. The root MIT license applies to this project's original work.
+Incorporated third-party portions remain subject to their respective notices
+and license terms.
 
 ## Philips HomeID
 
@@ -13,6 +13,9 @@ portions remain subject to their respective notices and license terms.
 - Copyright: Copyright (c) 2025, Renaud Allard <renaud@allard.it>
 
 This project provides the primary integration architecture and HomeID device communication foundation.
+
+The complete BSD 2-Clause notice for the incorporated Philips HomeID portions
+is reproduced under **BSD 2-Clause license text** below.
 
 ## Philips Pet Series
 
@@ -43,6 +46,32 @@ The icon-loading portion is derived from Thomas Lovén's `hass-fontawesome` and
 retains this notice:
 
 Copyright (c) 2019-2021 Thomas Lovén
+
+## BSD 2-Clause license text
+
+Copyright (c) 2025, Renaud Allard <renaud@allard.it>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## MIT license text
 

@@ -95,4 +95,4 @@ Please report problems caused by this combined integration in this repository ra
 
 ## License
 
-The integration is distributed under the BSD 2-Clause License, with incorporated portions remaining subject to their original compatible license notices. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
+The integration is distributed under the MIT License. Incorporated portions remain subject to their original compatible license notices, including the BSD 2-Clause notice for Philips HomeID. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
