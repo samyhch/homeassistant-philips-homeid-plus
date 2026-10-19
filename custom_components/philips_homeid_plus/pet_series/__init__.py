@@ -221,11 +221,17 @@ class PhilipsPetsSeriesDataUpdateCoordinator(DataUpdateCoordinator):
                     # Prefer the app-compatible cloud DP status. TinyTuya is
                     # only a fallback for installations with a real LAN IP.
                     if device.id in settings:
+                        cloud_device_id = self.tuya_device_id(device)
+                        # Definition metadata is optional. A denied or failing
+                        # schema request must not suppress a working status API.
                         try:
-                            cloud_device_id = self.tuya_device_id(device)
                             device_definitions[device.id] = await self._client.get_cloud_device_definition(
                                 cloud_device_id
                             )
+                        except Exception as err:
+                            _LOGGER.debug("Cloud DP definition unavailable for %s: %s", device.id, err)
+                            device_definitions[device.id] = {}
+                        try:
                             cloud_status = await self._client.get_cloud_device_status(
                                 cloud_device_id
                             )
@@ -238,7 +244,8 @@ class PhilipsPetsSeriesDataUpdateCoordinator(DataUpdateCoordinator):
                                     cloud_status[dp_info["dpCode"]] = cloud_status[str(dp_id)]
                             # The current app uses DP 101 for PAW3300/3320
                             # quick feeding; older models use DP 201.
-                            if device.product_ctn in {"PAW3300", "PAW3320"} and "101" in cloud_status:
+                            model = str(device.product_ctn or "").strip().upper().split("/")[0]
+                            if model in {"PAW3300", "PAW3320"} and "101" in cloud_status:
                                 cloud_status["feed_num"] = cloud_status["101"]
                             settings[device.id]["tuya_status"] = cloud_status
                         except Exception as err:

@@ -1,0 +1,50 @@
+"""Exercise the coordinator's actual cloud-status block with mocked requests."""
+import ast
+import json
+import logging
+from pathlib import Path
+from types import SimpleNamespace
+import unittest
+from unittest.mock import AsyncMock
+
+FOLDER = Path(__file__).resolve().parents[1] / "custom_components/philips_homeid_plus/pet_series"
+
+
+class PetStatusTests(unittest.IsolatedAsyncioTestCase):
+    async def read_status(self, *, definition_error=False, status_error=False, fallback=None):
+        tree = ast.parse((FOLDER / "__init__.py").read_text(encoding="utf-8-sig"))
+        block = next(node for node in ast.walk(tree) if isinstance(node, ast.If)
+                     and ast.unparse(node.test) == "device.id in settings")
+        function = ast.AsyncFunctionDef(name="run", args=ast.arguments(
+            posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
+            body=[block], decorator_list=[])
+        client = SimpleNamespace(
+            get_cloud_device_definition=AsyncMock(side_effect=RuntimeError("fixture") if definition_error else None, return_value={"schema": "fixture"}),
+            get_cloud_device_status=AsyncMock(side_effect=RuntimeError("fixture") if status_error else None, return_value={"dps": '{"101": 0, "231": 80}'}),
+        )
+        namespace = {
+            "self": SimpleNamespace(_client=client, tuya_device_id=lambda _: "fixture"),
+            "device": SimpleNamespace(id="fixture", product_ctn="PAW3320/02"),
+            "settings": {"fixture": {}}, "device_definitions": {},
+            "tuya_status": fallback, "json": json, "_LOGGER": logging.getLogger(__name__),
+            "datapoints": {"231": {"dpCode": "device_volume"}},
+        }
+        exec(compile(ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[])), "status-fixture", "exec"), namespace)
+        await namespace["run"]()
+        return namespace, client
+
+    async def test_definition_failure_does_not_block_status_or_aliases(self):
+        data, client = await self.read_status(definition_error=True)
+        client.get_cloud_device_status.assert_awaited_once_with("fixture")
+        self.assertEqual(data["device_definitions"]["fixture"], {})
+        status = data["settings"]["fixture"]["tuya_status"]
+        self.assertEqual(status["device_volume"], 80)
+        self.assertEqual(status["feed_num"], 0)
+
+    async def test_status_failure_uses_existing_fallback(self):
+        data, _ = await self.read_status(status_error=True, fallback={"231": 40})
+        self.assertEqual(data["settings"]["fixture"]["tuya_status"], {"231": 40})
+
+    async def test_both_failures_leave_mapping_not_none(self):
+        data, _ = await self.read_status(definition_error=True, status_error=True)
+        self.assertEqual(data["settings"]["fixture"]["tuya_status"], {})
