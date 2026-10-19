@@ -44,6 +44,11 @@ its configuration. Authentication uses the existing HomeID email/OTP flow.
 
 ## Supported device paths
 
+See the [verification matrix](SUPPORTED_DEVICES.md) for the distinction between
+inherited profiles and physically verified features, [troubleshooting](docs/TROUBLESHOOTING.md),
+[dashboard and automation examples](docs/EXAMPLES.md), [security](SECURITY.md),
+and the [release/HACS checklist](docs/HACS_RELEASE.md).
+
 ### HomeID appliances
 
 Uses the HomeID integration foundation for compatible local devices and supported HomeID cloud-relay devices.

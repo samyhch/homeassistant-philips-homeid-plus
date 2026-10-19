@@ -1,0 +1,33 @@
+blueprint:
+  name: Philips - turn on purifier above a PM2.5 threshold
+  description: Turns on the selected fan after sustained high PM2.5. Does not turn it off or override its mode.
+  domain: automation
+  input:
+    pm25:
+      name: PM2.5 sensor
+      selector:
+        entity:
+          domain: sensor
+    purifier:
+      name: Purifier fan
+      selector:
+        entity:
+          domain: fan
+    threshold:
+      name: PM2.5 threshold (µg/m³)
+      default: 25
+      selector:
+        number:
+          min: 1
+          max: 250
+          mode: box
+trigger:
+  - platform: numeric_state
+    entity_id: !input pm25
+    above: !input threshold
+    for: '00:05:00'
+action:
+  - action: fan.turn_on
+    target:
+      entity_id: !input purifier
+mode: single

@@ -2,6 +2,7 @@
 import ast
 import json
 import logging
+import math
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -30,9 +31,12 @@ class PetFeedCommandTests(unittest.IsolatedAsyncioTestCase):
             client = SimpleNamespace(auth=SimpleNamespace(id_token="fixture"), publish_cloud_dps=AsyncMock())
             coordinator = SimpleNamespace(tuya_device_id=lambda _: "fixture", async_request_refresh=AsyncMock())
             entity = SimpleNamespace(_device=device, _client=client, coordinator=coordinator,
-                _dp_id=capabilities.command_datapoint(device, "201"), _scale=0, _attr_name="Fixture")
+                _dp_id=capabilities.command_datapoint(device, "201"), _scale=0, _attr_name="Fixture",
+                _attr_native_min_value=0, _attr_native_max_value=20)
             namespace = {"command_datapoint": capabilities.command_datapoint,
-                "_LOGGER": logging.getLogger(__name__), "HomeAssistantError": RuntimeError}
+                "_LOGGER": logging.getLogger(__name__), "HomeAssistantError": RuntimeError,
+                "math": math, "ServiceValidationError": lambda **kwargs: ValueError("invalid"),
+                "DOMAIN": "fixture", "action_error": lambda error: RuntimeError("failed")}
             press = load_action("button.py", "async_press", namespace)
             set_number = load_action("number.py", "async_set_native_value", namespace)
             await press(entity)
@@ -41,6 +45,11 @@ class PetFeedCommandTests(unittest.IsolatedAsyncioTestCase):
             await set_number(entity, 3)
             client.publish_cloud_dps.assert_awaited_once_with("fixture", {expected: 3})
             self.assertEqual(coordinator.async_request_refresh.await_count, 2)
+            client.publish_cloud_dps.reset_mock()
+            for invalid in (-1, 21, 1.5, float("nan"), float("inf"), True):
+                with self.assertRaises(ValueError):
+                    await set_number(entity, invalid)
+            client.publish_cloud_dps.assert_not_awaited()
 
 
 class PetStatusTests(unittest.IsolatedAsyncioTestCase):

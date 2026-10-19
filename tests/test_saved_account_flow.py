@@ -230,3 +230,67 @@ class SavedAccountFlowTests(unittest.IsolatedAsyncioTestCase):
         result = await self.flow.async_step_integration_discovery({"account_entry_id": "hub"})
         self.assertEqual(result["type"], "device_selection")
         self.flow.async_step_saved_account.assert_awaited_once_with({"account": "hub"})
+
+    async def test_otp_email_validation_and_delivery(self):
+        self.api.request_otp = AsyncMock(return_value="fixture-vtoken")
+        result = await self.flow.async_step_cloud_email({"email": " "})
+        self.assertEqual(result["errors"]["base"], "missing_email")
+        self.api.request_otp.assert_not_awaited()
+        result = await self.flow.async_step_cloud_email({"email": " fixture@example.invalid "})
+        self.assertEqual(result["step_id"], "cloud_otp")
+        self.api.request_otp.assert_awaited_once_with("fixture@example.invalid")
+
+    async def test_otp_delivery_outage_closes_client(self):
+        self.api.request_otp = AsyncMock(side_effect=self.cloud.CloudConnectionError("fixture outage"))
+        result = await self.flow.async_step_cloud_email({"email": "fixture@example.invalid"})
+        self.assertEqual(result["errors"]["base"], "cloud_unreachable")
+        self.api.close.assert_awaited_once()
+
+    async def test_otp_invalid_code_and_outage_are_distinct_and_retryable(self):
+        self.flow._cloud_api = self.api
+        self.flow._cloud_email = "fixture@example.invalid"
+        self.flow._cloud_vtoken = "fixture"
+        for exception, expected in ((self.cloud.CloudConnectionError, "cloud_unreachable"),
+                                    (self.cloud.CloudAuthError, "otp_failed"),
+                                    (self.cloud.CloudNotRegisteredError, "account_not_registered")):
+            self.api.verify_otp = AsyncMock(side_effect=exception("fixture"))
+            result = await self.flow.async_step_cloud_otp({"code": "123456"})
+            self.assertEqual(result["errors"]["base"], expected)
+            self.assertIs(self.flow._cloud_api, self.api)
+        self.api.close.assert_not_awaited()
+
+    async def test_consumed_otp_is_not_verified_again_on_exchange_retry(self):
+        self.flow._cloud_api = self.api
+        self.flow._cloud_session_token = "fixture-session"
+        self.api.verify_otp = AsyncMock()
+        self.api.get_oidc_tokens = AsyncMock(side_effect=self.cloud.CloudConnectionError("fixture"))
+        result = await self.flow.async_step_cloud_otp({"code": ""})
+        self.assertEqual(result["errors"]["base"], "cloud_unreachable")
+        self.api.verify_otp.assert_not_awaited()
+        self.api.get_oidc_tokens.assert_awaited_once_with("fixture-session")
+
+    async def test_reauth_missing_entry_aborts_without_minting_tokens(self):
+        self.flow._cloud_api = self.api
+        self.flow._cloud_email = "fixture@example.invalid"
+        self.flow._cloud_vtoken = "fixture"
+        self.flow.context = {"entry_id": "gone"}
+        self.flow.hass.config_entries = SimpleNamespace(async_get_entry=Mock(return_value=None))
+        self.api.verify_otp = AsyncMock(return_value="fixture-session")
+        self.api.get_oidc_tokens = AsyncMock()
+        result = await self.flow.async_step_reauth_otp({"code": "123456"})
+        self.assertEqual(result["reason"], "reauth_entry_missing")
+        self.api.get_oidc_tokens.assert_not_awaited()
+
+    async def test_reauth_preserves_airplus_audience(self):
+        self.flow._cloud_api = self.api
+        self.flow._cloud_email = "fixture@example.invalid"
+        self.flow._cloud_vtoken = "fixture"
+        self.flow.context = {"entry_id": "airplus"}
+        entry = SimpleNamespace(data={"oauth_client": "airplus"})
+        self.flow.hass.config_entries = SimpleNamespace(async_get_entry=Mock(return_value=entry))
+        self.api.verify_otp = AsyncMock(return_value="fixture-session")
+        self.api.get_oidc_tokens = AsyncMock(return_value={"refresh_token": "fixture-new"})
+        self.flow.async_update_reload_and_abort = Mock(return_value={"reason": "reauth_successful"})
+        result = await self.flow.async_step_reauth_otp({"code": "123456"})
+        self.assertEqual(result["reason"], "reauth_successful")
+        self.api.get_oidc_tokens.assert_awaited_once_with("fixture-session", client="airplus")

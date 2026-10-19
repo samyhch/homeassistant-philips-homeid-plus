@@ -37,7 +37,7 @@ class HomeIDAccountCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry):
         super().__init__(
             hass, _LOGGER, name="HomeID account", config_entry=entry,
-            update_interval=timedelta(minutes=15),
+            update_interval=timedelta(minutes=getattr(entry, "options", {}).get("inventory_interval", 15)),
         )
         self.entry = entry
 
@@ -90,7 +90,26 @@ class HomeIDAccountOptionsFlow(config_entries.OptionsFlow):
     """Refresh inventory or start device onboarding with the saved account."""
 
     async def async_step_init(self, user_input=None):
-        return self.async_show_menu(step_id="account", menu_options=["add_device", "refresh"])
+        return self.async_show_menu(step_id="account", menu_options=["add_device", "refresh", "settings"])
+
+    async def async_step_settings(self, user_input=None):
+        """Adjust account inventory polling, not appliance command frequency."""
+        import voluptuous as vol
+
+        errors = {}
+        if user_input is not None:
+            interval = user_input.get("inventory_interval")
+            if type(interval) is not int or not 1 <= interval <= 60:
+                errors["base"] = "invalid_inventory_interval"
+            else:
+                runtime = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
+                if runtime:
+                    runtime["account_coordinator"].update_interval = timedelta(minutes=interval)
+                return self.async_create_entry(data={**self.config_entry.options, "inventory_interval": interval}, title="")
+        return self.async_show_form(step_id="settings", errors=errors, data_schema=vol.Schema({
+            vol.Required("inventory_interval", default=self.config_entry.options.get("inventory_interval", 15)):
+                vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+        }))
 
     async def async_step_add_device(self, user_input=None):
         await self.hass.config_entries.flow.async_init(

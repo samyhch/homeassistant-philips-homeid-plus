@@ -6,6 +6,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import EntityCategory
 
 import logging
+import math
+from homeassistant.exceptions import ServiceValidationError
 
 from petsseries.api import PetsSeriesClient
 
@@ -13,6 +15,7 @@ from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
 from .datapoints import datapoints
 from .capabilities import command_datapoint
+from ..action_errors import action_error
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -183,6 +186,13 @@ class PhilipsPetsSeriesNumber(PhilipsPetsSeriesEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Set a new value."""
+        if (
+            isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or not self._attr_native_min_value <= value <= self._attr_native_max_value
+            or not math.isclose(value * 10 ** self._scale, round(value * 10 ** self._scale))
+        ):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_number")
         try:
             # Tuya expects the fixed-point integer described by the scale.
             int_value = int(round(value * (10 ** self._scale)))
@@ -198,6 +208,4 @@ class PhilipsPetsSeriesNumber(PhilipsPetsSeriesEntity, NumberEntity):
             )
             await self.coordinator.async_request_refresh()
         except Exception as e:
-            raise HomeAssistantError(
-                f"Failed to set {self._attr_name} to {value}: {e}"
-            ) from e
+            raise action_error(e) from e

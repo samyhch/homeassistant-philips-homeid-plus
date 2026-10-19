@@ -1,0 +1,30 @@
+# Paste as a dashboard's raw configuration. Replace every example entity ID
+# with your own; remove sensors your particular model does not expose.
+title: Philips air quality
+views:
+  - title: Air quality
+    path: air-quality
+    cards:
+      - type: gauge
+        entity: sensor.living_room_pm25
+        name: PM2.5
+        min: 0
+        max: 100
+        severity:
+          green: 0
+          yellow: 15
+          red: 35
+      - type: history-graph
+        hours_to_show: 24
+        entities:
+          - sensor.living_room_pm25
+          - sensor.living_room_humidity
+      - type: entities
+        title: Air and filters
+        entities:
+          - sensor.living_room_iai
+          - sensor.living_room_gas
+          - sensor.living_room_temperature
+          - sensor.living_room_filter_remaining
+          - fan.living_room
+          - humidifier.living_room

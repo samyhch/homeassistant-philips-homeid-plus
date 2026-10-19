@@ -366,11 +366,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         registry = er.async_get(hass)
         target = entry.data.get("tuya_device_id")
         if target:
-            old_id = registry.async_get_entity_id("button", DOMAIN, f"{target}_dispense_one_portion")
+            from .identity import migrate_feed_button_identity
+
             device = coordinator.data["devices"][0]
-            new_unique = f"{device.id}_feed_button"
-            if old_id and not registry.async_get_entity_id("button", DOMAIN, new_unique):
-                registry.async_update_entity(old_id, new_unique_id=new_unique)
+            migrate_feed_button_identity(registry, DOMAIN, target, device.id)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         await async_setup_services(hass, client)
         await _async_setup_frontend(hass)

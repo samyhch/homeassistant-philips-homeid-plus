@@ -60,6 +60,7 @@ async def main():
     await coordinator.async_shutdown()
     from unittest.mock import AsyncMock, patch
     package = importlib.import_module(prefix)
+    repairs = importlib.import_module(prefix + ".repair_helpers")
     entry = ConfigEntry(version=1, minor_version=1, domain="philips_homeid_plus",
         state=ConfigEntryState.SETUP_IN_PROGRESS, title="Fixture account", data={"is_homeid_account":True, "cloud_refresh_token":"fixture-only"},
         options={}, source="user", unique_id="homeid_account_fixture",
@@ -69,7 +70,7 @@ async def main():
         get_devices=AsyncMock(return_value=[]), close=AsyncMock())
     forward = AsyncMock()
     unload = AsyncMock(return_value=True)
-    with patch.object(hub_module, "PhilipsCloudAPI", return_value=api), patch.object(
+    with patch.object(repairs, "report_setup_issue"), patch.object(repairs, "clear_setup_issues"), patch.object(hub_module, "PhilipsCloudAPI", return_value=api), patch.object(
         hub_module, "homeid_tokens", AsyncMock(return_value={"access_token":"fixture-only"})
     ), patch.object(ConfigEntries, "async_entries", return_value=[entry]), patch.object(
         ConfigEntries, "async_forward_entry_setups", forward
@@ -87,4 +88,61 @@ async def main():
         assert forward.await_count == 1 and unload.await_count == 1
         api.close.assert_awaited_once()
     print("REAL_HA_SETUP_UNLOAD_AND_PLATFORM_DISPATCH_OK")
+    # Construct the actual four model profiles and exercise controls against
+    # AsyncMocks only. No production entry/device is read or connected.
+    from unittest.mock import Mock
+    air = importlib.import_module(prefix + ".airpurifier.philips")
+    air_const = importlib.import_module(prefix + ".airpurifier.const")
+    for model in ("AC0951", "AC3360/11", "AC3420", "HU5710"):
+        cls = air.model_to_class[model]
+        status = {air_const.PhilipsApi.MODEL_ID: model,
+                  air_const.PhilipsApi.WIFI_VERSION: "fixture-1",
+                  air_const.PhilipsApi.DEVICE_ID: "fixture-device"}
+        client = types.SimpleNamespace(set_control_value=AsyncMock(), set_control_values=AsyncMock())
+        coordinator = types.SimpleNamespace(status=status, client=client, last_update_success=True)
+        runtime = types.SimpleNamespace(coordinator=coordinator, latest_status=status,
+            device_information=types.SimpleNamespace(model=model, name="Fixture", device_id="fixture-device", mac=None))
+        entity = cls(hass, entry, runtime)
+        entity._handle_coordinator_update = Mock()
+        assert entity.available
+        coordinator.last_update_success = False
+        assert not entity.available
+        coordinator.last_update_success = True
+        await entity.async_turn_on()
+        client.set_control_value.assert_awaited_once_with(entity.KEY_PHILIPS_POWER, entity.STATE_POWER_ON)
+        assert entity.is_on
+        await entity.async_turn_off()
+        assert not entity.is_on
+        assert entity.unique_id == f"{model}-fixture-device"
+        if model in ("AC3420", "HU5710"):
+            platform = importlib.import_module(prefix + ".airpurifier.humidifier")
+            hass.data.setdefault("philips_homeid_plus", {})[entry.entry_id] = runtime
+            humidifiers = []
+            await platform.async_setup_entry(hass, entry, lambda items, **kwargs: humidifiers.extend(items))
+            assert humidifiers, model
+        print("REAL_HA_MODEL_FIXTURE_OK", model)
+
+    from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+    import logging
+    coordinator = DataUpdateCoordinator(hass, logging.getLogger(__name__), name="fixture-pet", config_entry=entry)
+    pet_client = types.SimpleNamespace(auth=types.SimpleNamespace(id_token="fixture"), tuya_client=None,
+                                     publish_cloud_dps=AsyncMock())
+    home = types.SimpleNamespace(id="fixture-home")
+    for model, dp in (("PAW3320/02", "101"), ("PAW5320/02", "201")):
+        device = types.SimpleNamespace(id="fixture-pet", product_ctn=model, name="Fixture feeder")
+        coordinator.async_set_updated_data({"homes": [home], "home_devices": {home.id: [device]},
+            "settings": {device.id: {"tuya_status": {dp: 0}}}})
+        coordinator.tuya_device_id = lambda _: "fixture-target"
+        coordinator.async_request_refresh = AsyncMock()
+        hass.data["philips_homeid_plus"][entry.entry_id] = {"client": pet_client, "coordinator": coordinator}
+        platform = importlib.import_module(prefix + ".pet_series.number")
+        numbers = []
+        await platform.async_setup_entry(hass, entry, numbers.extend)
+        number = next(item for item in numbers if item._dp_code == "feed_num")
+        assert number.available
+        assert number.unique_id == "fixture-pet_number_feed_num"
+        await number.async_set_native_value(2)
+        pet_client.publish_cloud_dps.assert_awaited_with("fixture-target", {dp: 2})
+        print("REAL_HA_FEED_NUMBER_FIXTURE_OK", model)
+    await coordinator.async_shutdown()
 asyncio.run(main())

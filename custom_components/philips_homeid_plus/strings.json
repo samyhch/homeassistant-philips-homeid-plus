@@ -1,5 +1,47 @@
 {
+  "exceptions": {
+    "device_offline": {
+      "message": "The device did not respond. Check its power and connection. If a feeding command timed out, check the feeder before trying again."
+    },
+    "auth_expired": {
+      "message": "The HomeID session expired. Sign in again through the integration's reauthentication prompt."
+    },
+    "permission_denied": {
+      "message": "HomeID/Tuya denied this action. Check ownership and whether the same action works in HomeID; signing in again may not resolve a permission restriction."
+    },
+    "command_unsupported": {
+      "message": "This command is not supported by the device or firmware."
+    },
+    "feeding_problem": {
+      "message": "The feeder reported low food or a blocked outlet. Check the feeder before feeding again."
+    },
+    "command_failed": {
+      "message": "The command failed or its outcome could not be confirmed. Check the device before retrying; feeding commands are never retried automatically."
+    },
+    "invalid_number": {
+      "message": "Choose a finite value within this control's range and precision."
+    },
+    "invalid_option": {
+      "message": "Choose one of the options offered by this control."
+    }
+  },
   "issues": {
+      "auth_expired": {
+        "title": "HomeID sign-in expired for {entry}",
+        "description": "Open Devices & services and complete the reauthentication prompt. Use the existing email/OTP sign-in. Do not delete the entry or share tokens."
+      },
+      "local_unreachable": {
+        "title": "Local appliance is unreachable for {entry}",
+        "description": "Check power, network access and the configured IP address. Reserve the IP in DHCP and update the entry through its options if it changed. Disable other CoAP integrations controlling the same appliance; some models allow only one observer. Reload this entry after correcting the connection."
+      },
+      "integration_conflict": {
+        "title": "Another integration may control the same device as {entry}",
+        "description": "An active legacy Philips integration has the same configured device identity or IP address. Disable the competing entry before reloading this entry. Do not delete entries until entity IDs and history have been checked. Nothing has been disabled automatically."
+      },
+      "missing_credentials": {
+        "title": "Saved HomeID credentials are missing for {entry}",
+        "description": "Use the normal HomeID reauthentication flow to restore access. HomeID cloud feeders do not require a separate Tuya developer account or local Tuya credentials."
+      },
     "missing_pet_devices": {
       "title": "HomeID could not find the feeder for {entry}",
       "description": "Open the HomeID app with the same account and check that the feeder is present and controllable in the correct home. Restore account or sharing access if it changed, then reload this entry. Home Assistant retries automatically and this notice clears after successful setup. If you intentionally removed the feeder, remove its integration entry."
@@ -153,8 +195,14 @@
         "title": "HomeID account management",
         "menu_options": {
           "add_device": "Discover and add devices",
-          "refresh": "Refresh account inventory"
+          "refresh": "Refresh account inventory",
+          "settings": "Inventory polling interval"
         }
+      },
+      "settings": {
+        "title": "HomeID inventory settings",
+        "description": "This interval refreshes the account device list only; device update intervals are unchanged.",
+        "data": {"inventory_interval": "Inventory polling interval (minutes, 1–60)"}
       },
       "init": {
         "data": {

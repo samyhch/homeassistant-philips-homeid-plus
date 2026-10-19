@@ -88,6 +88,33 @@ async def async_setup(hass: HomeAssistant, config) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Report actionable setup failures without replacing HA's retry/reauth."""
+    from .repair_helpers import clear_setup_issues, has_active_conflict, report_setup_issue
+
+    conflict = has_active_conflict(entry, hass.config_entries.async_entries())
+    if conflict:
+        report_setup_issue(hass, entry, "integration_conflict")
+    try:
+        if entry.data.get(CONF_IS_TUYA_PET) and not entry.data.get(CONF_CLOUD_REFRESH_TOKEN):
+            report_setup_issue(hass, entry, "missing_credentials")
+            raise ConfigEntryAuthFailed("The saved HomeID session is missing")
+        result = await _async_setup_entry_backend(hass, entry)
+    except ConfigEntryAuthFailed:
+        report_setup_issue(hass, entry, "auth_expired")
+        raise
+    except ConfigEntryNotReady:
+        if entry.data.get(CONF_IS_AIRPURIFIER_COAP):
+            report_setup_issue(hass, entry, "local_unreachable")
+        raise
+    if result:
+        clear_setup_issues(hass, entry, keep_conflict=conflict)
+        from .transport import track_transport
+
+        track_transport(hass, entry)
+    return result
+
+
+async def _async_setup_entry_backend(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Philips HomeID from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
@@ -112,9 +139,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Clean up entry-scoped Repair notices and Pet Series resources."""
-    from .repair_helpers import clear_missing_pet_devices
+    from .repair_helpers import clear_missing_pet_devices, clear_setup_issues
 
     clear_missing_pet_devices(hass, entry)
+    clear_setup_issues(hass, entry)
     if entry.data.get(CONF_IS_TUYA_PET):
         from .pet_series import async_remove_entry as remove_pet_series
 

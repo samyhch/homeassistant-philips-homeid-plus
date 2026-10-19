@@ -2,6 +2,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
+coverage.xml
+test-results.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 .venv/
 venv/
 .idea/

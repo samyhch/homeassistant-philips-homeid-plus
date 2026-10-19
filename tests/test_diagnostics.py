@@ -82,6 +82,7 @@ class BackendDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
                     "CONF_ENCRYPTION_KEY"):
             setattr(constants, key, key.removeprefix("CONF_").lower())
         modules["diagnostic_test.privacy"] = privacy
+        modules["diagnostic_test"].__path__ = [str(COMPONENT)]
         self.imports = patch.dict(sys.modules, modules)
         self.imports.start()
         self.addCleanup(self.imports.stop)

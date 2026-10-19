@@ -65,7 +65,11 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    return redact_diagnostics(await _async_collect_diagnostics(hass, entry))
+    from .transport import transport_diagnostics
+
+    result = await _async_collect_diagnostics(hass, entry)
+    result["connection"] = transport_diagnostics(hass, entry)
+    return redact_diagnostics(result)
 
 
 async def _async_collect_diagnostics(
