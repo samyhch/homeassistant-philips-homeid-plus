@@ -8,6 +8,7 @@ from homeassistant.util import dt as dt_util
 import logging
 from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
+from .capabilities import supports_camera
 from petsseries.crypto import decrypt_image
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,6 +25,8 @@ async def async_setup_entry(
 
     images = []
     for home, device in iter_home_devices(coordinator):
+        if not supports_camera(device):
+            continue
         images.append(PhilipsPetsSeriesMotionImage(coordinator, home, device))
 
     async_add_entities(images)

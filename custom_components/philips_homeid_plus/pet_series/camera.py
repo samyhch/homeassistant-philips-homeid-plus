@@ -13,6 +13,7 @@ import logging
 from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .bridge import CAMERA_MODE_DISABLED
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
+from .capabilities import supports_camera
 from petsseries.crypto import decrypt_image
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +34,8 @@ async def async_setup_entry(
     # No stream URL or local Tuya credential options are required.
     cameras = []
     for home, device in iter_home_devices(coordinator):
+        if not supports_camera(device):
+            continue
         cameras.append(
             PhilipsPetsSeriesCamera(coordinator, home, device, config_entry, bridge)
         )

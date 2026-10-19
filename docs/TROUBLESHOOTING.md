@@ -65,3 +65,9 @@ excluded from exported diagnostics.
   separately tested migration process. Removing and recreating entries can change
   entity IDs. Back up your configuration before migrating.
 - Built-in model profiles are not a claim that every device was physically tested.
+- PAW3320 has no camera: camera, snapshot and camera-only controls are not
+  created for this model (including regional CTNs such as PAW3320/02). Unknown
+  models retain the existing behavior. Missing cloud status alone is not used
+  to remove feeding or volume controls. Existing registry records are not
+  deleted automatically; previously created unsupported entities may remain
+  listed as unavailable and can be disabled manually without deleting history.

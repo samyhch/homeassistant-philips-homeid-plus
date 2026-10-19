@@ -22,6 +22,7 @@ from petsseries.api import PetsSeriesClient
 from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .const import REMOVED_DP_SENSORS  # noqa: F401  (documented alongside _READ_ONLY_TUYA_DPS)
 from .datapoints import datapoints
+from .capabilities import supports_camera
 from . import firmware
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
 from .meals import device_meals, next_occurrence as next_meal, occurrences
@@ -91,13 +92,14 @@ async def async_setup_entry(
             PhilipsPetsSeriesRawDpSensor(coordinator, home, device, dp_id, name, unit)
             for dp_id, (name, unit) in _READ_ONLY_TUYA_DPS.items()
         )
-        sensors.append(PhilipsPetsSeriesCameraOrientationSensor(coordinator, home, device))
-        sensors.append(PhilipsPetsSeriesMotionSnapshotSensor(coordinator, home, device))
+        if supports_camera(device):
+            sensors.append(PhilipsPetsSeriesCameraOrientationSensor(coordinator, home, device))
+            sensors.append(PhilipsPetsSeriesMotionSnapshotSensor(coordinator, home, device))
         sensors.append(PhilipsPetsSeriesNextMealSensor(coordinator, home, device))
         sensors.append(
             PhilipsPetsSeriesLanAddressSensor(coordinator, home, device, beacons)
         )
-        if bridge is not None:
+        if bridge is not None and supports_camera(device):
             sensors.append(
                 PhilipsPetsSeriesStreamUrlSensor(coordinator, home, device, bridge)
             )
