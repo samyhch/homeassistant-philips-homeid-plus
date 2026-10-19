@@ -20,6 +20,12 @@ class CoordinatorStub:
 
 
 class OptionsStub:
+    def async_show_form(self, **kwargs):
+        return kwargs
+
+    def async_create_entry(self, **kwargs):
+        return kwargs
+
     def async_show_menu(self, **kwargs):
         return kwargs
 
@@ -72,7 +78,7 @@ class AccountHubTests(unittest.IsolatedAsyncioTestCase):
         spec.loader.exec_module(self.hub)
         self.entry = SimpleNamespace(entry_id="hub", data={
             "is_homeid_account": True, "cloud_refresh_token": "refresh",
-        })
+        }, options={})
         self.device = SimpleNamespace(data={"cloud_refresh_token": "refresh"})
         self.hass = SimpleNamespace(
             data={},
@@ -156,3 +162,25 @@ class AccountHubTests(unittest.IsolatedAsyncioTestCase):
             "philips_homeid_plus", context={"source": "integration_discovery"},
             data={"account_entry_id": "hub"},
         )
+
+    async def test_inventory_interval_options_validate_and_apply_without_reload(self):
+        from datetime import timedelta
+        vol = ModuleType("voluptuous")
+        vol.Schema = lambda value: value
+        vol.Required = lambda key, **kwargs: key
+        vol.All = lambda *args: args
+        vol.Coerce = lambda value: value
+        vol.Range = lambda **kwargs: kwargs
+        options = self.hub.HomeIDAccountOptionsFlow()
+        options.hass = self.hass
+        options.config_entry = self.entry
+        self.entry.options = {"unrelated_option": True}
+        coordinator = SimpleNamespace(update_interval=timedelta(minutes=15))
+        self.hass.data["philips_homeid_plus"] = {"hub": {"account_coordinator": coordinator}}
+        with patch.dict(sys.modules, {"voluptuous": vol}):
+            for value in (0, 61, 2.5, True, "5"):
+                result = await options.async_step_settings({"inventory_interval": value})
+                self.assertEqual(result["errors"]["base"], "invalid_inventory_interval")
+            result = await options.async_step_settings({"inventory_interval": 5})
+        self.assertEqual(result["data"], {"unrelated_option": True, "inventory_interval": 5})
+        self.assertEqual(coordinator.update_interval, timedelta(minutes=5))

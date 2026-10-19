@@ -23,6 +23,11 @@ def clear_setup_issues(hass, entry, *, keep_conflict=False):
         ir.async_delete_issue(hass, DOMAIN, f"{key}_{entry.entry_id}")
 
 
+def clear_local_issue(hass, entry):
+    """Clear just the local connectivity warning on observed recovery."""
+    ir.async_delete_issue(hass, DOMAIN, f"local_unreachable_{entry.entry_id}")
+
+
 def has_active_conflict(entry, entries):
     """Only warn about exact identities/hosts on an actively loaded old backend."""
     for other in entries:

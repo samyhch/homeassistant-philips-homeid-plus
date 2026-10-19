@@ -184,6 +184,7 @@
     }
   },
   "options": {
+    "error": {"invalid_inventory_interval": "Choose a whole number from 1 to 60."},
     "abort": {
       "account_discovery_started": "Device discovery started. Continue from the discovered entry in Devices & services.",
       "account_not_loaded": "The account is not loaded. Resolve its setup or authentication error and try again.",

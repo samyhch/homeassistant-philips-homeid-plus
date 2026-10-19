@@ -20,3 +20,7 @@ The meal calendar currently displays schedules; it does not edit them. Use the
 official HomeID app for schedule changes until write semantics and time zones
 are verified. History-derived daily counters must not be presented as reliable
 totals when the vendor returns only a partial history or omits portion counts.
+An optional disabled-by-default diagnostic sensor counts **observed feeding
+events today** with deduplication and local-day boundaries. It is not a portion
+counter: `mealAmount` has no verified unit, and clustered/bounded history is not
+proof of a complete day. Missing event retrieval is unknown, not zero food.

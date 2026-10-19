@@ -31,6 +31,13 @@ def track_transport(hass, entry):
             return
         state["available"] = bool(success)
         state["reason"] = None if success else "transport_update_failed"
+        if state["transport"] == "local_coap":
+            from .repair_helpers import clear_local_issue, report_setup_issue
+
+            if success:
+                clear_local_issue(hass, entry)
+            else:
+                report_setup_issue(hass, entry, "local_unreachable")
         if success:
             stamp = getattr(coordinator, "last_successful_update", None)
             state["last_successful_update"] = stamp or datetime.now(timezone.utc).isoformat()

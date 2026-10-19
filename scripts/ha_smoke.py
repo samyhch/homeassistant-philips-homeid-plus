@@ -148,4 +148,16 @@ async def main():
         pet_client.publish_cloud_dps.assert_awaited_with("fixture-target", {dp: 2})
         print("REAL_HA_FEED_NUMBER_FIXTURE_OK", model)
     await coordinator.async_shutdown()
+    # The actual CoAP coordinator must release its timer and observer on unload.
+    coap = importlib.import_module(prefix + ".airpurifier.coordinator")
+    client = types.SimpleNamespace(get_status=AsyncMock(return_value=({"fixture": 1}, 60)), shutdown=AsyncMock())
+    coordinator = coap.Coordinator(hass, client, "192.0.2.1", None)
+    await coordinator.async_first_refresh()
+    assert coordinator.last_update_success
+    observer = asyncio.create_task(asyncio.Event().wait())
+    coordinator._task = observer
+    await coordinator.shutdown()
+    assert observer.cancelled()
+    client.shutdown.assert_awaited_once()
+    print("REAL_HA_COAP_SHUTDOWN_FIXTURE_OK")
 asyncio.run(main())

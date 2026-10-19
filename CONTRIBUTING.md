@@ -5,10 +5,20 @@ Run these checks from the repository root using Python 3.13 or 3.14:
 ```sh
 python scripts/validate.py
 python -B -m unittest discover -s tests -v
+python -m pip install -r requirements-dev.txt
+python scripts/validate_resources.py
+ruff check custom_components scripts tests
+mypy
+pytest --cov --cov-report=term --cov-report=xml
 ```
 
 The syntax validator uses ast.parse and does not write protected __pycache__
 directories. The initial regression suite needs only the Python standard library.
+Full quality checks require `requirements-dev.txt`. Coverage reports include all
+integration sources, including unimported legacy modules; no 95% claim is made.
+Ruff currently enforces correctness rules across all sources; mypy is limited to
+the four files listed in pyproject.toml. These are staged baselines, not full
+style/typing coverage of the inherited integration.
 Its backend tests stub Home Assistant imports and exercise diagnostic routing,
 account token rotation, concurrency and selected config-flow paths. Flow tests
 stub form/schema imports; they do not replace testing actual Home Assistant form

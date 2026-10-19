@@ -55,6 +55,44 @@ excluded from exported diagnostics.
 
 ## Known limitations
 
+### Unavailable after restart
+
+First inspect the entry's setup/reauthentication status and download diagnostics.
+The `connection` section separates the configured transport, availability, last
+observed successful update and a bounded failure reason. Cached CoAP status is
+not counted as a new successful update. A last success timestamp is not proof
+that a physical command succeeded. For a local outage check DHCP/IP and competing
+observers; for a cloud outage test the same account in HomeID. Reload the affected
+entry once after correcting the cause instead of repeatedly restarting all HA.
+
+### Migrating from legacy integrations
+
+Back up HA and record entity IDs, unique IDs and device associations first.
+Disable the old entry, test the new entry, and verify automations/history before
+removing anything. Do not edit `.storage` while HA runs. The integration's own
+legacy one-portion button migration changes its unique ID in place and refuses
+to overwrite an existing target identity; it is not a universal cross-domain
+migration. Legacy entries are never disabled automatically by a conflict warning.
+
+### Authentication/API changes
+
+Keep the email/OTP flow; do not supply Tuya developer credentials to work around
+a HomeID permission error. Report exact model/firmware, operation and sanitized
+error diagnostics. A schema-metadata failure is now independent of status reads.
+Permission denied does not prove an expired session. Camera/OTA/history APIs may
+have different permissions from basic feeding.
+
+### Health and optional sensors
+
+Transport health is exported in diagnostics. Account Options can change the
+inventory interval from 1 to 60 minutes; this does not alter device polling.
+The account's add-device action uses the saved HomeID session. Device entries
+still have their own lifecycle, so use HA's native disable/re-enable option for
+individual devices. No general cloud/local failover is advertised: it must be
+verified separately per model and must never duplicate a feed action.
+
+### Remaining limitations
+
 - Entity availability depends on the model, firmware and upstream API permissions.
 - Local CoAP appliances and cloud-connected feeders use different transports;
   a cloud outage does not imply local CoAP should be unavailable.

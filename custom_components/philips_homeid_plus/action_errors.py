@@ -25,3 +25,25 @@ def error_key(error):
 def action_error(error):
     """Keep the original exception as a cause, not as user-visible text."""
     return HomeAssistantError(translation_domain=DOMAIN, translation_key=error_key(error))
+
+
+class CoAPCommandClient:
+    """Translate writes only, forwarding reads/observations without retries."""
+
+    def __init__(self, client):
+        self._client = client
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+    async def set_control_value(self, *args, **kwargs):
+        try:
+            return await self._client.set_control_value(*args, **kwargs)
+        except Exception as error:
+            raise action_error(error) from error
+
+    async def set_control_values(self, *args, **kwargs):
+        try:
+            return await self._client.set_control_values(*args, **kwargs)
+        except Exception as error:
+            raise action_error(error) from error

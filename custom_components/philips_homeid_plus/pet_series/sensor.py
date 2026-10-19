@@ -23,6 +23,7 @@ from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .const import REMOVED_DP_SENSORS  # noqa: F401  (documented alongside _READ_ONLY_TUYA_DPS)
 from .datapoints import datapoints
 from .capabilities import supports_camera
+from .feeding_history import observed_feedings_today
 from . import firmware
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
 from .meals import device_meals, next_occurrence as next_meal, occurrences
@@ -96,6 +97,7 @@ async def async_setup_entry(
             sensors.append(PhilipsPetsSeriesCameraOrientationSensor(coordinator, home, device))
             sensors.append(PhilipsPetsSeriesMotionSnapshotSensor(coordinator, home, device))
         sensors.append(PhilipsPetsSeriesNextMealSensor(coordinator, home, device))
+        sensors.append(PhilipsPetsSeriesDailyFeedingsSensor(coordinator, home, device))
         sensors.append(
             PhilipsPetsSeriesLanAddressSensor(coordinator, home, device, beacons)
         )
@@ -125,6 +127,30 @@ async def async_setup_entry(
     sensors.append(PhilipsPetsSeriesDiscoverySensor(coordinator))
 
     async_add_entities(sensors)
+
+
+class PhilipsPetsSeriesDailyFeedingsSensor(PhilipsPetsSeriesEntity, SensorEntity):
+    """A bounded-history count, not an authoritative daily portion total."""
+
+    _attr_name = "Observed feedings today"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _attr_icon = "mdi:counter"
+
+    def __init__(self, coordinator, home, device):
+        super().__init__(coordinator, device, home)
+        self._attr_unique_id = f"{device.id}_observed_feedings_today"
+
+    @property
+    def native_value(self):
+        events = self.coordinator.data.get("events_by_home_and_type", {}).get(f"{self._home.id}_meal_dispensed")
+        if events is None:
+            return None
+        return observed_feedings_today(events, self._device.id, dt_util.now())
+
+    @property
+    def extra_state_attributes(self):
+        return {"history_is_complete": False, "counts_portions": False}
 
 
 class PhilipsPetsSeriesFirmwareSensor(PhilipsPetsSeriesEntity, SensorEntity):
