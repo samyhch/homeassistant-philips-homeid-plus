@@ -134,7 +134,7 @@ async def main():
     for model, dp in (("PAW3320/02", "101"), ("PAW5320/02", "201")):
         device = types.SimpleNamespace(id="fixture-pet", product_ctn=model, name="Fixture feeder")
         coordinator.async_set_updated_data({"homes": [home], "home_devices": {home.id: [device]},
-            "settings": {device.id: {"tuya_status": {dp: 0}}}})
+            "settings": {device.id: {"tuya_status": {dp: 0, "feed_num": 0}}}})
         coordinator.tuya_device_id = lambda _: "fixture-target"
         coordinator.async_request_refresh = AsyncMock()
         hass.data["philips_homeid_plus"][entry.entry_id] = {"client": pet_client, "coordinator": coordinator}
@@ -145,7 +145,7 @@ async def main():
         assert number.available
         assert number.unique_id == "fixture-pet_number_feed_num"
         await number.async_set_native_value(2)
-        pet_client.publish_cloud_dps.assert_awaited_with("fixture-target", {dp: 2})
+        pet_client.publish_cloud_dps.assert_awaited_with("fixture-target", {"201": 2})
         print("REAL_HA_FEED_NUMBER_FIXTURE_OK", model)
     await coordinator.async_shutdown()
     # The actual CoAP coordinator must release its timer and observer on unload.

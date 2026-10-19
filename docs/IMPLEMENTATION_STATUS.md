@@ -2,6 +2,9 @@
 
 This is a candid progress record, not a release certification. The working Home
 Assistant installation has not been replaced or restarted for these changes.
+The maintenance subset is published as 0.1.3; unresolved roadmap items below are
+not part of its completion claim. The proposed N-portions register remapping is
+excluded, retaining the pre-existing number-control behavior.
 
 | Proposal | Implemented in the draft branch | Remaining before calling it complete |
 |---|---|---|

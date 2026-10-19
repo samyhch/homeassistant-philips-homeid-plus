@@ -9,7 +9,7 @@ def device_model(device):
 
 
 def command_datapoint(device, dp_id):
-    """Use the essential feeder's quick-feed register for both feed controls."""
+    """Resolve the known one-portion button register, not the N-portions control."""
     if str(dp_id) == "201" and device_model(device) in {"PAW3300", "PAW3320"}:
         return "101"
     return str(dp_id)

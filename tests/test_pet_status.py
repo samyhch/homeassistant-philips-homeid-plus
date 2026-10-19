@@ -21,7 +21,7 @@ def load_action(filename, method, namespace):
 
 
 class PetFeedCommandTests(unittest.IsolatedAsyncioTestCase):
-    async def test_button_and_number_send_same_model_specific_register(self):
+    async def test_button_mapping_does_not_change_existing_number_register(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location("feed_capabilities", FOLDER / "capabilities.py")
         capabilities = importlib.util.module_from_spec(spec)
@@ -31,7 +31,7 @@ class PetFeedCommandTests(unittest.IsolatedAsyncioTestCase):
             client = SimpleNamespace(auth=SimpleNamespace(id_token="fixture"), publish_cloud_dps=AsyncMock())
             coordinator = SimpleNamespace(tuya_device_id=lambda _: "fixture", async_request_refresh=AsyncMock())
             entity = SimpleNamespace(_device=device, _client=client, coordinator=coordinator,
-                _dp_id=capabilities.command_datapoint(device, "201"), _scale=0, _attr_name="Fixture",
+                _dp_id="201", _scale=0, _attr_name="Fixture",
                 _attr_native_min_value=0, _attr_native_max_value=20)
             namespace = {"command_datapoint": capabilities.command_datapoint,
                 "_LOGGER": logging.getLogger(__name__), "HomeAssistantError": RuntimeError,
@@ -43,7 +43,7 @@ class PetFeedCommandTests(unittest.IsolatedAsyncioTestCase):
             client.publish_cloud_dps.assert_awaited_once_with("fixture", {expected: 1.0})
             client.publish_cloud_dps.reset_mock()
             await set_number(entity, 3)
-            client.publish_cloud_dps.assert_awaited_once_with("fixture", {expected: 3})
+            client.publish_cloud_dps.assert_awaited_once_with("fixture", {"201": 3})
             self.assertEqual(coordinator.async_request_refresh.await_count, 2)
             client.publish_cloud_dps.reset_mock()
             for invalid in (-1, 21, 1.5, float("nan"), float("inf"), True):
