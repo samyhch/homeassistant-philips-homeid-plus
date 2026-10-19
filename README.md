@@ -42,7 +42,7 @@ installation. Do not delete/recreate entries for a normal update of this integra
 - Privacy-safe diagnostic exports, transport health and actionable Repairs.
 - English/Bulgarian messages for common feeder/CoAP command failures and validation before writes.
 - PAW3320 camera-capability filtering, independent feeder status reads, and CoAP connection/unload fixes.
-- Dashboard and notification blueprint examples, device verification matrix, and automated quality checks.
+- Dashboard and notification blueprint examples, plus a supported-device overview.
 
 The N-portions control retains its previous command register; the proposed
 PAW3320 remapping is not included. No automatic retries of feeding commands or
@@ -136,16 +136,11 @@ A normal upgrade of Philips HomeID Plus itself preserves existing entries; it
 does not require removing and adding devices again. See the
 [migration limitations](docs/TROUBLESHOOTING.md#migrating-from-legacy-integrations).
 
-## Help and development
+## Help
 
 See [troubleshooting and known limitations](docs/TROUBLESHOOTING.md) for setup,
-availability and command errors, and [contributing](CONTRIBUTING.md) for local
-validation and regression tests.
-
-v0.1.3 has 83 passing regression tests and fixture-based compatibility checks
-using Home Assistant 2026.10.2. Fixtures use mocked commands, not physical-device
-tests. Full-source unit coverage is approximately 6%, not 95%, and type checking
-is currently limited to a documented baseline.
+availability and command errors. Development information is available separately
+in [Contributing](CONTRIBUTING.md).
 
 ## Project origins and acknowledgements
 
