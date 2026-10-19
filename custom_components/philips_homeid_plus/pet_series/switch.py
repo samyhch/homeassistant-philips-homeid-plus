@@ -13,6 +13,8 @@ from petsseries.api import PetsSeriesClient
 from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
 from .datapoints import datapoints
+from .capabilities import supports_datapoint
+from ..action_errors import action_error
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +40,8 @@ async def async_setup_entry(
 
             # Iterate through all datapoints
             for dp_id, dp_info in datapoints.items():
+                if not supports_datapoint(device, dp_id):
+                    continue
                 dp_code = dp_info["dpCode"]
                 dp_type = dp_info["standardType"]
                 dp_path = dp_info.get("path", "")
@@ -124,7 +128,7 @@ class PhilipsPetsSeriesSwitch(PhilipsPetsSeriesEntity, SwitchEntity):
             )
             await self.coordinator.async_request_refresh()
         except Exception as e:
-            raise HomeAssistantError(f"Failed to turn on {self._attr_name}: {e}") from e
+            raise action_error(e) from e
 
     async def async_turn_off(self, **kwargs):
         """Turn the switch off."""
@@ -135,4 +139,4 @@ class PhilipsPetsSeriesSwitch(PhilipsPetsSeriesEntity, SwitchEntity):
             )
             await self.coordinator.async_request_refresh()
         except Exception as e:
-            raise HomeAssistantError(f"Failed to turn off {self._attr_name}: {e}") from e
+            raise action_error(e) from e

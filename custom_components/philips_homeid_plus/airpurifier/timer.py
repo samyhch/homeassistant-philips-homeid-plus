@@ -87,3 +87,11 @@ class Timer:
     def setAutoRestart(self, auto_restart):
         """Set the autorestart."""
         self._auto_restart = auto_restart
+
+    async def async_shutdown(self):
+        """Stop even while the timeout callback is running; await cancellation."""
+        self._auto_restart = False
+        task, self._task = self._task, None
+        if task is not None and task is not asyncio.current_task():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)

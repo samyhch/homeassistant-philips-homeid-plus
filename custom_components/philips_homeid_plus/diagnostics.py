@@ -40,6 +40,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import PhilipsHomeIDCoordinator
+from .privacy import redact_diagnostics
 
 REDACT_KEYS = {
     CONF_CLIENT_ID,
@@ -57,18 +58,45 @@ def _redact_properties(properties: dict[str, Any]) -> dict[str, Any]:
     "url", and diagnostics get attached to issues, so no port body is allowed
     to carry a signed link out.
     """
-    redacted: dict[str, Any] = {}
-    for key, value in properties.items():
-        if isinstance(value, dict) and "url" in value:
-            value = {**value, "url": "**REDACTED**"}
-        redacted[key] = value
-    return redacted
+    return redact_diagnostics(properties)
 
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
+    from .transport import transport_diagnostics
+
+    result = await _async_collect_diagnostics(hass, entry)
+    result["connection"] = transport_diagnostics(hass, entry)
+    return redact_diagnostics(result)
+
+
+async def _async_collect_diagnostics(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> dict[str, Any]:
+    """Collect backend-specific diagnostics before final recursive redaction."""
+    if entry.data.get("is_homeid_account"):
+        runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        coordinator = runtime.get("account_coordinator") if runtime else None
+        return {
+            "backend": "homeid_account",
+            "loaded": coordinator is not None,
+            "inventory": coordinator.data if coordinator else {},
+            "last_update_success": coordinator.last_update_success if coordinator else False,
+        }
+    if entry.data.get("is_airpurifier_coap"):
+        runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        result = {
+            "config": dict(entry.data),
+            "options": dict(entry.options),
+            "backend": "local_coap",
+            "loaded": runtime is not None,
+        }
+        if runtime is not None:
+            result["device"] = {"model": runtime.device_information.model}
+            result["state"] = runtime.coordinator.status or {}
+        return result
     if entry.data.get("is_tuya_pet") and isinstance(hass.data.get(DOMAIN, {}).get(entry.entry_id), dict):
         from .pet_series.diagnostics import async_get_config_entry_diagnostics as pet_diagnostics
         return await pet_diagnostics(hass, entry)

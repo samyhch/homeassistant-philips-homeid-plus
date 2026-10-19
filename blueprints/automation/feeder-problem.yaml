@@ -1,0 +1,22 @@
+blueprint:
+  name: Philips - feeder problem notification
+  description: Notify after a sustained problem. Select a low-food/stuck problem sensor, not the connectivity sensor. Never dispenses food automatically.
+  domain: automation
+  input:
+    problem:
+      name: Feeder problem sensor (on means problem)
+      selector:
+        entity:
+          domain: binary_sensor
+    notify_actions:
+      name: Notification actions
+      description: Select your mobile notification action or another notification destination.
+      selector:
+        action: {}
+trigger:
+  - platform: state
+    entity_id: !input problem
+    to: 'on'
+    for: '00:02:00'
+action: !input notify_actions
+mode: single

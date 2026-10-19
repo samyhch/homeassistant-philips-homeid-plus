@@ -59,6 +59,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up sensors from config entry."""
+    if entry.data.get("is_homeid_account"):
+        from .account_sensor import async_setup_entry as setup_account
+
+        return await setup_account(hass, entry, async_add_entities)
     if entry.data.get("is_airpurifier_coap"):
         from .airpurifier.sensor import async_setup_entry as setup_airpurifier
         return await setup_airpurifier(hass, entry, async_add_entities)

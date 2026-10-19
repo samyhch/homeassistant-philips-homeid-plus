@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
+from ..privacy import redact_diagnostics
 
 # Key names are matched exactly, so every credential has to be listed in full:
 # "token" does not cover "id_token", which is a live bearer credential able to
@@ -71,7 +72,7 @@ async def async_get_config_entry_diagnostics(
 
     if config_entry.entry_id not in hass.data.get(DOMAIN, {}):
         data["error"] = "Integration not initialized"
-        return data
+        return redact_diagnostics(data)
 
     domain_data = hass.data[DOMAIN][config_entry.entry_id]
     coordinator = domain_data.get("coordinator")
@@ -107,15 +108,12 @@ async def async_get_config_entry_diagnostics(
         for device in (coordinator.data.get("devices", []) if coordinator else []):
             endpoint = bridge.stream_endpoint(device)
             if endpoint and endpoint.get("url"):
-                entry_info = {"name": device.name, "stream_url": endpoint["url"],
+                entry_info = {"stream_available": True,
                               "address_source": endpoint.get("address_source")}
-                if endpoint.get("note"):
-                    entry_info["note"] = endpoint["note"]
                 cameras.append(entry_info)
         data["camera_streaming"] = {
             "mode": bridge.camera_mode,
             "cameras": cameras,
-            "frigate_example": _frigate_example(cameras),
             "documentation": "https://github.com/AboveColin/HA-Philips-Pet-Series/blob/main/docs/nvr.md",
         }
 
@@ -126,4 +124,4 @@ async def async_get_config_entry_diagnostics(
             and getattr(client, "_initialized", False),
         }
 
-    return data
+    return redact_diagnostics(data)

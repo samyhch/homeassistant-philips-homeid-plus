@@ -1,0 +1,32 @@
+name: Release archive
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python scripts/validate.py
+      - run: python -B -m unittest discover -s tests -v
+      - name: Build versioned archive
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: python scripts/build_release.py "$RELEASE_TAG"
+      - name: Attach archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" dist/philips_homeid_plus.zip

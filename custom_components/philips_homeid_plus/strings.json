@@ -1,4 +1,52 @@
 {
+  "exceptions": {
+    "device_offline": {
+      "message": "The device did not respond. Check its power and connection. If a feeding command timed out, check the feeder before trying again."
+    },
+    "auth_expired": {
+      "message": "The HomeID session expired. Sign in again through the integration's reauthentication prompt."
+    },
+    "permission_denied": {
+      "message": "HomeID/Tuya denied this action. Check ownership and whether the same action works in HomeID; signing in again may not resolve a permission restriction."
+    },
+    "command_unsupported": {
+      "message": "This command is not supported by the device or firmware."
+    },
+    "feeding_problem": {
+      "message": "The feeder reported low food or a blocked outlet. Check the feeder before feeding again."
+    },
+    "command_failed": {
+      "message": "The command failed or its outcome could not be confirmed. Check the device before retrying; feeding commands are never retried automatically."
+    },
+    "invalid_number": {
+      "message": "Choose a finite value within this control's range and precision."
+    },
+    "invalid_option": {
+      "message": "Choose one of the options offered by this control."
+    }
+  },
+  "issues": {
+      "auth_expired": {
+        "title": "HomeID sign-in expired for {entry}",
+        "description": "Open Devices & services and complete the reauthentication prompt. Use the existing email/OTP sign-in. Do not delete the entry or share tokens."
+      },
+      "local_unreachable": {
+        "title": "Local appliance is unreachable for {entry}",
+        "description": "Check power, network access and the configured IP address. Reserve the IP in DHCP and update the entry through its options if it changed. Disable other CoAP integrations controlling the same appliance; some models allow only one observer. Reload this entry after correcting the connection."
+      },
+      "integration_conflict": {
+        "title": "Another integration may control the same device as {entry}",
+        "description": "An active legacy Philips integration has the same configured device identity or IP address. Disable the competing entry before reloading this entry. Do not delete entries until entity IDs and history have been checked. Nothing has been disabled automatically."
+      },
+      "missing_credentials": {
+        "title": "Saved HomeID credentials are missing for {entry}",
+        "description": "Use the normal HomeID reauthentication flow to restore access. HomeID cloud feeders do not require a separate Tuya developer account or local Tuya credentials."
+      },
+    "missing_pet_devices": {
+      "title": "HomeID could not find the feeder for {entry}",
+      "description": "Open the HomeID app with the same account and check that the feeder is present and controllable in the correct home. Restore account or sharing access if it changed, then reload this entry. Home Assistant retries automatically and this notice clears after successful setup. If you intentionally removed the feeder, remove its integration entry."
+    }
+  },
   "config": {
     "step": {
       "user": {
@@ -38,6 +86,20 @@
         "description": "A verification code has been sent to {email}. Enter it below.",
         "data": {
           "code": "Verification Code"
+        }
+      },
+      "account_hub": {
+        "title": "Manage this HomeID account",
+        "description": "Create a central account entry with inventory sensors and an option to discover devices using the saved session. Existing device entries and their entity IDs are retained.",
+        "data": {
+          "name": "Account name"
+        }
+      },
+      "saved_account": {
+        "title": "Use a saved HomeID account",
+        "description": "Choose a session identified by one of its existing devices. Devices sharing the same session are grouped together. Choose Sign in to another HomeID account to use the usual HomeID email verification.",
+        "data": {
+          "account": "Saved HomeID session"
         }
       },
       "cloud_devices": {
@@ -98,6 +160,8 @@
       "encryption_key_failed": "Could not obtain encryption key from device. The credentials may be cloud credentials (not local), or the device requires a manual encryption key. Use the credential extractor or provide the key manually.",
       "unknown": "An unexpected error occurred",
       "missing_email": "Please enter your email address",
+      "account_name_required": "Enter a name for this HomeID account.",
+      "saved_session_expired": "This saved session was rejected. Reauthenticate its existing entry in Devices & services, or select Sign in to another HomeID account to add a device with a new session.",
       "missing_code": "Please enter the verification code",
       "otp_send_failed": "Failed to send verification code. Please check your email and try again.",
       "otp_failed": "Invalid verification code. Please try again.",
@@ -110,7 +174,8 @@
       "cloud_oauth_failed": "Cloud authentication failed. Check Home Assistant logs for details. You can also enter credentials manually."
     },
     "abort": {
-      "already_configured": "Device already configured",
+      "account_unavailable": "The selected HomeID account is missing or disabled. Enable it or add the account again.",
+      "already_configured": "Device or account already configured",
       "already_in_progress": "Configuration flow is already in progress",
       "cannot_connect": "Cannot connect to device",
       "unsupported_device": "This Philips device is not supported by the integration and was ignored.",
@@ -119,7 +184,27 @@
     }
   },
   "options": {
+    "error": {"invalid_inventory_interval": "Choose a whole number from 1 to 60."},
+    "abort": {
+      "account_discovery_started": "Device discovery started. Continue from the discovered entry in Devices & services.",
+      "account_not_loaded": "The account is not loaded. Resolve its setup or authentication error and try again.",
+      "account_refreshed": "The HomeID account inventory was refreshed.",
+      "account_refresh_failed": "The account could not be refreshed. Check its connection or authentication status."
+    },
     "step": {
+      "account": {
+        "title": "HomeID account management",
+        "menu_options": {
+          "add_device": "Discover and add devices",
+          "refresh": "Refresh account inventory",
+          "settings": "Inventory polling interval"
+        }
+      },
+      "settings": {
+        "title": "HomeID inventory settings",
+        "description": "This interval refreshes the account device list only; device update intervals are unchanged.",
+        "data": {"inventory_interval": "Inventory polling interval (minutes, 1–60)"}
+      },
       "init": {
         "data": {
           "scan_interval": "Polling interval (seconds)",
@@ -137,6 +222,12 @@
   },
   "entity": {
     "sensor": {
+      "discovered_devices": {
+        "name": "Discovered devices"
+      },
+      "configured_devices": {
+        "name": "Configured devices"
+      },
       "pm25": {
         "name": "PM2.5"
       },

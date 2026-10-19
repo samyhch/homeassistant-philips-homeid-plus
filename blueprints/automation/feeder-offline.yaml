@@ -1,0 +1,21 @@
+blueprint:
+  name: Philips - feeder offline notification
+  description: Notify if the connectivity sensor remains off. Unknown/unavailable are not interpreted as confirmed offline. Never retries feeding.
+  domain: automation
+  input:
+    connectivity:
+      name: Device connectivity sensor (on means connected)
+      selector:
+        entity:
+          domain: binary_sensor
+    notify_actions:
+      name: Notification actions
+      selector:
+        action: {}
+trigger:
+  - platform: state
+    entity_id: !input connectivity
+    to: 'off'
+    for: '00:05:00'
+action: !input notify_actions
+mode: single

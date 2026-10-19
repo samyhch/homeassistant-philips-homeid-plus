@@ -12,6 +12,9 @@ from petsseries.api import PetsSeriesClient
 from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
 from .datapoints import datapoints
+from .capabilities import supports_datapoint
+from ..action_errors import action_error
+from homeassistant.exceptions import ServiceValidationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +41,8 @@ async def async_setup_entry(
 
             # Iterate through all datapoints
             for dp_id, dp_info in datapoints.items():
+                if not supports_datapoint(device, dp_id):
+                    continue
                 dp_code = dp_info["dpCode"]
                 dp_type = dp_info["standardType"]
                 dp_path = dp_info.get("path", "tuya_status")
@@ -149,8 +154,7 @@ class PhilipsPetsSeriesSelect(PhilipsPetsSeriesEntity, SelectEntity):
         """Change the selected option."""
         value = self._nicename_to_value.get(option)
         if value is None:
-            _LOGGER.error("Invalid option selected: %s", option)
-            return
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_option")
         try:
             _LOGGER.debug(
                 "Setting Select Entity [%s] to %s (value: %s)",
@@ -164,6 +168,4 @@ class PhilipsPetsSeriesSelect(PhilipsPetsSeriesEntity, SelectEntity):
             )
             await self.coordinator.async_request_refresh()
         except Exception as e:
-            raise HomeAssistantError(
-                f"Failed to set {self._attr_name} to {option}: {e}"
-            ) from e
+            raise action_error(e) from e

@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+from datetime import datetime, timezone
 from asyncio.tasks import Task
 from collections.abc import Callable
 from typing import Any
@@ -12,6 +13,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .timer import Timer
+from ..action_errors import CoAPCommandClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,9 +33,11 @@ class Coordinator:
         """
 
         self.hass = hass
-        self.client = client
+        self.client = CoAPCommandClient(client)
         self.host = host
         self.status = status
+        self.last_update_success = None
+        self.last_successful_update = None
 
         self._listeners: list[CALLBACK_TYPE] = []
         self._task: Task | None = None
@@ -51,17 +55,26 @@ class Coordinator:
     async def shutdown(self):
         """Shutdown the API connection."""
 
-        if self._reconnect_task is not None:
-            self._reconnect_task.cancel()
-
         if self._timer_disconnected is not None:
-            self._timer_disconnected.cancel()
+            await self._timer_disconnected.async_shutdown()
+
+        tasks = [task for task in (self._task, self._reconnect_task)
+                 if task is not None and task is not asyncio.current_task()]
+        self._task = self._reconnect_task = None
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._listeners.clear()
 
         if self.client is not None:
             await self.client.shutdown()
 
     async def reconnect(self):
         """Reconnect to the API connection."""
+        self.last_update_success = False
+        for update_callback in self._listeners:
+            update_callback()
 
         try:
             if self._reconnect_task is not None:
@@ -79,7 +92,7 @@ class Coordinator:
         try:
             with contextlib.suppress(Exception):
                 await self.client.shutdown()
-            self.client = await CoAPClient.create(self.host)
+            self.client = CoAPCommandClient(await CoAPClient.create(self.host))
             self._start_observing()
 
         except asyncio.CancelledError:
@@ -95,6 +108,8 @@ class Coordinator:
 
         try:
             self.status, timeout = await self.client.get_status()
+            self.last_update_success = True
+            self.last_successful_update = datetime.now(timezone.utc).isoformat()
             self._timeout = timeout
             if self._timer_disconnected is not None:
                 self._timer_disconnected.setTimeout(timeout * MISSED_PACKAGE_COUNT)
@@ -136,6 +151,8 @@ class Coordinator:
 
         async for status in self.client.observe_status():
             self.status = status
+            self.last_update_success = True
+            self.last_successful_update = datetime.now(timezone.utc).isoformat()
             self._timer_disconnected.reset()
             for update_callback in self._listeners:
                 update_callback()

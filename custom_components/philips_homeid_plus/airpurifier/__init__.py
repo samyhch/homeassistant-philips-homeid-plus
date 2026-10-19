@@ -198,12 +198,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     shared = hass.data.get(f"{DOMAIN}_shared_airpurifier", set())
     if entry.entry_id in shared:
         unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        if not unload_ok:
+            return False
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         shared.discard(entry.entry_id)
         return unload_ok
 
-    for p in PLATFORMS:
-        await hass.config_entries.async_forward_entry_unload(entry, p)
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
 
     config_entry_data: ConfigEntryData = hass.data[DOMAIN][entry.entry_id]
     await config_entry_data.coordinator.shutdown()

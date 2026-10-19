@@ -1465,14 +1465,19 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def _refresh_cloud_tokens(self, refresh_token: str) -> dict[str, Any]:
         """Refresh the cloud tokens, persisting a rotated refresh token.
 
-        Owns its own session so a caller can shield the whole exchange. The
-        cloud hands back a new refresh token as part of it and retires the one
+        HomeID entries share the account refresh lock and session cache; Air+
+        entries retain their own OAuth audience. A caller can shield the whole
+        exchange. The cloud hands back a new refresh token and retires the one
         we sent, so a cancel landing between the response and the write would
         leave the entry holding a dead token, and re-login would be the only
         way back. Unload cancels the tasks that call this.
         """
         from .cloud_api import PhilipsCloudAPI
 
+        if self.config_entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID) == OAUTH_CLIENT_HOMEID:
+            from .account_session import homeid_tokens
+
+            return await homeid_tokens(self.hass, self.config_entry)
         cloud_api = PhilipsCloudAPI()
         try:
             client = self.config_entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID)

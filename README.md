@@ -25,7 +25,29 @@ Current support includes:
 
 Copy `custom_components/philips_homeid_plus` into the `custom_components` directory of your Home Assistant configuration, then restart Home Assistant.
 
+## Central HomeID account
+
+After signing in (or selecting a saved session), choose **Manage this HomeID
+account** in the device selector and give the account a name. This creates an
+account entry with discovered/configured device counts. Its options menu can
+refresh the inventory or start adding devices using the saved HomeID session.
+Inventory refreshes automatically every 15 minutes.
+
+Existing appliance entries, entity IDs and history are retained. Configured-device
+count means appliance entries sharing this HomeID session; unrelated local CoAP
+devices and Air+ accounts are separate. Removing the account manager leaves
+existing device entries in place with their saved credentials.
+
+The account manager does not automatically provision or delete appliances.
+Continue each discovered device's setup to select its supported model and confirm
+its configuration. Authentication uses the existing HomeID email/OTP flow.
+
 ## Supported device paths
+
+See the [verification matrix](SUPPORTED_DEVICES.md) for the distinction between
+inherited profiles and physically verified features, [troubleshooting](docs/TROUBLESHOOTING.md),
+[dashboard and automation examples](docs/EXAMPLES.md), [security](SECURITY.md),
+and the [release/HACS checklist](docs/HACS_RELEASE.md).
 
 ### HomeID appliances
 
@@ -74,6 +96,12 @@ This list means that a model profile exists in the integration. Exact entities a
 Do not configure two integrations against the same device at the same time. In particular, a Philips air purifier may support only one active long-lived CoAP observer. Back up your Home Assistant configuration before migrating existing entries.
 
 Automatic cross-domain migration from the three upstream integrations is not included in the public `v0.1.0` release. Existing users should remove the old entry and add the device to Philips HomeID Plus, or wait for a documented migration tool in a later release.
+
+## Help and development
+
+See [troubleshooting and known limitations](docs/TROUBLESHOOTING.md) for setup,
+availability and command errors, and [contributing](CONTRIBUTING.md) for local
+validation and regression tests.
 
 ## Project origins and acknowledgements
 

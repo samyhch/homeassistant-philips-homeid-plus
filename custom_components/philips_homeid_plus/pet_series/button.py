@@ -10,6 +10,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
+from .capabilities import command_datapoint
+from ..action_errors import action_error
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ class PhilipsPetsSeriesFeedButton(PhilipsPetsSeriesEntity, ButtonEntity):
         try:
             # The mobile app uses DP 101 for PAW3300/feeder-essential and
             # DP 201 for the legacy feeder path. Keep this at one portion.
-            dp_id = "101" if self._device.product_ctn in {"PAW3300", "PAW3320"} else "201"
+            dp_id = command_datapoint(self._device, "201")
             if getattr(self._client.auth, "id_token", None):
                 await self._client.publish_cloud_dps(
                     self.coordinator.tuya_device_id(self._device),
@@ -78,7 +80,7 @@ class PhilipsPetsSeriesFeedButton(PhilipsPetsSeriesEntity, ButtonEntity):
 
             await self.coordinator.async_request_refresh()
         except Exception as e:
-            raise HomeAssistantError(f"Failed to dispense food: {e}") from e
+            raise action_error(e) from e
 
 
 class PhilipsPetsSeriesResetFilterButton(PhilipsPetsSeriesEntity, ButtonEntity):
@@ -100,4 +102,4 @@ class PhilipsPetsSeriesResetFilterButton(PhilipsPetsSeriesEntity, ButtonEntity):
             _LOGGER.info(f"Successfully reset filter for device {self._device.id}")
             await self.coordinator.async_request_refresh()
         except Exception as e:
-            raise HomeAssistantError(f"Failed to reset the filter: {e}") from e
+            raise action_error(e) from e
