@@ -23,5 +23,14 @@ in test fixtures. Use reserved example addresses and fictitious credentials.
 Preserve LICENSE, NOTICE.md and upstream notices when adapting code.
 
 Test a candidate release on an isolated Home Assistant installation before
+publishing. With Home Assistant and the integration dependencies installed, run
+`python -B scripts/ha_smoke.py /path/to/candidate/repository` in a separate Python
+process. This checks actual HA imports, config forms and schema validation,
+account creation results, sensor construction, and account setup/unload dispatch.
+Cloud replies and platform forwarding are mocked; it does not test physical
+devices or persist entries into the running HA instance. The script has been
+verified with Home Assistant 2026.10.2 using fixture credentials only.
+
+Test actual device behavior separately before
 updating a production installation. Keep a backup of config entries, entity and
 device registries. Confirm that entity IDs and history survive a migration.
