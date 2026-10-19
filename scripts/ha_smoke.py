@@ -25,6 +25,9 @@ async def main():
     hub_module = importlib.import_module(prefix + ".account_hub")
     sensor_module = importlib.import_module(prefix + ".account_sensor")
     hass = HomeAssistant(str(root / "ha-fixture"))
+    # An isolated process has no loader bootstrap; deprecation reporting still
+    # expects the integration cache to exist when an integration frame is found.
+    hass.data.setdefault("integrations", {})
     hass.config_entries = ConfigEntries(hass, {})
     entry = ConfigEntry(version=1, minor_version=1, domain="philips_homeid_plus",
         title="Fixture device", data={"cloud_refresh_token":"fixture-only"},

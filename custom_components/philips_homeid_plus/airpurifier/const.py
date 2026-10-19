@@ -15,11 +15,11 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_TEMPERATURE,
-    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
     CONF_ENTITY_CATEGORY,
     PERCENTAGE,
-    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     EntityCategory,
+    UnitOfMassConcentration,
+    UnitOfSignalStrength,
     UnitOfTemperature,
     UnitOfTime,
 )
@@ -642,19 +642,19 @@ SENSOR_TYPES: dict[str, SensorDescription] = {
     PhilipsApi.PM25: {
         ATTR_DEVICE_CLASS: SensorDeviceClass.PM25,
         FanAttributes.LABEL: FanAttributes.PM25,
-        FanAttributes.UNIT: CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        FanAttributes.UNIT: UnitOfMassConcentration.MICROGRAMS_PER_CUBIC_METER,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
     },
     PhilipsApi.NEW_PM25: {
         ATTR_DEVICE_CLASS: SensorDeviceClass.PM25,
         FanAttributes.LABEL: FanAttributes.PM25,
-        FanAttributes.UNIT: CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        FanAttributes.UNIT: UnitOfMassConcentration.MICROGRAMS_PER_CUBIC_METER,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
     },
     PhilipsApi.NEW2_PM25: {
         ATTR_DEVICE_CLASS: SensorDeviceClass.PM25,
         FanAttributes.LABEL: FanAttributes.PM25,
-        FanAttributes.UNIT: CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        FanAttributes.UNIT: UnitOfMassConcentration.MICROGRAMS_PER_CUBIC_METER,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
     },
     PhilipsApi.NEW2_GAS: {
@@ -745,7 +745,7 @@ SENSOR_TYPES: dict[str, SensorDescription] = {
         FanAttributes.LABEL: FanAttributes.RSSI,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
         ATTR_DEVICE_CLASS: SensorDeviceClass.SIGNAL_STRENGTH,
-        FanAttributes.UNIT: SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+        FanAttributes.UNIT: UnitOfSignalStrength.DECIBELS_MILLIWATT,
         CONF_ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
     },
     # PhilipsApi.RUNTIME: {
