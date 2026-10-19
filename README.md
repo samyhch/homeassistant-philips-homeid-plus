@@ -2,6 +2,12 @@
 
 An unofficial Home Assistant custom integration that brings several Philips HomeID product families together under one integration.
 
+Current release: [v0.1.3](https://github.com/samyhch/homeassistant-philips-homeid-plus/releases/tag/v0.1.3).
+See the [changelog](CHANGELOG.md) for this maintenance release and the
+[implementation status](docs/IMPLEMENTATION_STATUS.md) for deferred features.
+The project combines three upstream integrations; their authors and license
+notices are credited below and in [NOTICE.md](NOTICE.md).
+
 Current support includes:
 
 - Philips HomeID appliances supported by the upstream HomeID integration.
@@ -25,13 +31,33 @@ Current support includes:
 
 Copy `custom_components/philips_homeid_plus` into the `custom_components` directory of your Home Assistant configuration, then restart Home Assistant.
 
+Alternatively, download `philips_homeid_plus.zip` from the release assets and
+extract its contents into `custom_components/philips_homeid_plus/` (not directly
+into `custom_components/`). Back up Home Assistant before updating an existing
+installation. Do not delete/recreate entries for a normal update of this integration.
+
+## What's included in v0.1.3
+
+- Saved HomeID sessions, shared token refresh and an optional account inventory manager.
+- Privacy-safe diagnostic exports, transport health and actionable Repairs.
+- English/Bulgarian messages for common feeder/CoAP command failures and validation before writes.
+- PAW3320 camera-capability filtering, independent feeder status reads, and CoAP connection/unload fixes.
+- Dashboard and notification blueprint examples, device verification matrix, and automated quality checks.
+
+The N-portions control retains its previous command register; the proposed
+PAW3320 remapping is not included. No automatic retries of feeding commands or
+firmware installation are enabled. An optional diagnostic counts observed feeding
+events, **not** verified daily portions. Automatic device-subentry migration,
+editable schedules and general local/cloud failover remain future work.
+
 ## Central HomeID account
 
 After signing in (or selecting a saved session), choose **Manage this HomeID
 account** in the device selector and give the account a name. This creates an
 account entry with discovered/configured device counts. Its options menu can
 refresh the inventory or start adding devices using the saved HomeID session.
-Inventory refreshes automatically every 15 minutes.
+Inventory refreshes automatically every 15 minutes by default; account Options
+can set this interval from 1 to 60 minutes. This does not change device polling.
 
 Existing appliance entries, entity IDs and history are retained. Configured-device
 count means appliance entries sharing this HomeID session; unrelated local CoAP
@@ -69,12 +95,14 @@ HomeID may also discover additional compatible appliances through its generic lo
 
 Pet Series devices use the HomeID account session. A single HomeID sign-in can discover the compatible feeders associated with that account. The integration exposes feeder controls, status sensors, schedules, diagnostics, and the entities supported by the adapted Pet Series implementation.
 
-The initial tested feeder models are:
+The owner's previously tested feeder models are:
 
 - PAW3320/02
 - PAW5320/02
 
 The adapted Pet Series code also contains compatibility handling for the PAW3300 family, but it is not part of the initial verified test set.
+Those physical checks do not certify every v0.1.3 entity or firmware variant;
+see the verification matrix for the exact limits of the available evidence.
 
 ### Air purifiers and humidifiers
 
@@ -95,13 +123,29 @@ This list means that a model profile exists in the integration. Exact entities a
 
 Do not configure two integrations against the same device at the same time. In particular, a Philips air purifier may support only one active long-lived CoAP observer. Back up your Home Assistant configuration before migrating existing entries.
 
-Automatic cross-domain migration from the three upstream integrations is not included in the public `v0.1.0` release. Existing users should remove the old entry and add the device to Philips HomeID Plus, or wait for a documented migration tool in a later release.
+Automatic cross-domain migration from the three upstream integrations is **not
+included in v0.1.3**. Do not delete the old entry as the first migration step:
+
+1. Make a full backup and record the existing entity IDs and device associations.
+2. Disable the old integration entry before connecting the same device here.
+3. Add and test the device, then verify automations, entity IDs and history.
+4. Remove the old entry only after verification. Cross-domain identity/history
+   preservation is not guaranteed; wait for a tested migration tool if it is essential.
+
+A normal upgrade of Philips HomeID Plus itself preserves existing entries; it
+does not require removing and adding devices again. See the
+[migration limitations](docs/TROUBLESHOOTING.md#migrating-from-legacy-integrations).
 
 ## Help and development
 
 See [troubleshooting and known limitations](docs/TROUBLESHOOTING.md) for setup,
 availability and command errors, and [contributing](CONTRIBUTING.md) for local
 validation and regression tests.
+
+v0.1.3 has 83 passing regression tests and fixture-based compatibility checks
+using Home Assistant 2026.10.2. Fixtures use mocked commands, not physical-device
+tests. Full-source unit coverage is approximately 6%, not 95%, and type checking
+is currently limited to a documented baseline.
 
 ## Project origins and acknowledgements
 
