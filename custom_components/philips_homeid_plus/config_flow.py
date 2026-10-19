@@ -180,6 +180,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._airplus_tokens: dict[str, Any] = {}
         # (source, record) pairs, source being "homeid", "iot" or "airplus"
         self._cloud_devices: list[tuple[str, dict[str, Any]]] = []
+        self._skip_saved_session = False
 
     async def _close_cloud_api(self) -> None:
         """Close cloud API session if open."""
@@ -589,28 +590,15 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """
         errors: dict[str, str] = {}
 
-        if user_input is None and self._discovered_device is None:
-            from .account_session import homeid_tokens
+        if (
+            user_input is None
+            and self._discovered_device is None
+            and not self._skip_saved_session
+        ):
+            from .account_session import saved_homeid_sessions
 
-            entries = [
-                entry for entry in self._async_current_entries()
-                if entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
-                and entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID)
-                == OAUTH_CLIENT_HOMEID
-            ]
-            if entries:
-                self._cloud_api = PhilipsCloudAPI()
-                try:
-                    self._cloud_tokens = await homeid_tokens(self.hass, entries[0])
-                    appliances = await self._cloud_api.get_appliances_via_homeid(
-                        self._cloud_tokens
-                    )
-                    if appliances:
-                        self._cloud_devices = [("homeid", item) for item in appliances]
-                        return await self.async_step_cloud_devices()
-                except (CloudAuthError, aiohttp.ClientError, TimeoutError):
-                    _LOGGER.warning("Saved HomeID session could not list devices")
-                await self._close_cloud_api()
+            if saved_homeid_sessions(self._async_current_entries()):
+                return await self.async_step_saved_account()
 
         if user_input is not None:
             if user_input.get("manual_entry") and self._discovered_device is not None:
@@ -646,6 +634,61 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="cloud_email",
             data_schema=vol.Schema(schema_dict),
+            errors=errors,
+        )
+
+    async def async_step_saved_account(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose an existing HomeID session or use the normal OTP login."""
+        from .account_session import homeid_tokens, saved_homeid_sessions
+
+        sessions = saved_homeid_sessions(self._async_current_entries())
+        options = {entry.entry_id: entry.title for entry in sessions}
+        options["new_login"] = "Sign in to another HomeID account"
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            selected = user_input.get("account")
+            if selected == "new_login":
+                await self._close_cloud_api()
+                self._cloud_tokens = {}
+                self._cloud_devices = []
+                self._skip_saved_session = True
+                return await self.async_step_cloud_email()
+            entry = next((item for item in sessions if item.entry_id == selected), None)
+            if entry is None:
+                errors["base"] = "unknown"
+            else:
+                await self._close_cloud_api()
+                self._cloud_api = PhilipsCloudAPI()
+                try:
+                    self._cloud_tokens = await homeid_tokens(self.hass, entry)
+                    appliances = await self._cloud_api.get_appliances_via_homeid(
+                        self._cloud_tokens
+                    )
+                    found = [("homeid", item) for item in appliances]
+                    # Match the normal login path: compatible IoT-only appliances
+                    # should not disappear when a saved session is reused.
+                    if not found:
+                        found = [
+                            ("iot", item) for item in await self._discover_iot_devices(
+                                self._cloud_tokens, False
+                            )
+                        ]
+                    if found:
+                        self._cloud_devices = found
+                        return await self.async_step_cloud_devices()
+                    errors["base"] = "no_cloud_devices"
+                except (CloudConnectionError, aiohttp.ClientError, TimeoutError):
+                    errors["base"] = "cloud_unreachable"
+                except CloudAuthError:
+                    errors["base"] = "saved_session_expired"
+                finally:
+                    if errors:
+                        await self._close_cloud_api()
+        return self.async_show_form(
+            step_id="saved_account",
+            data_schema=vol.Schema({vol.Required("account"): vol.In(options)}),
             errors=errors,
         )
 

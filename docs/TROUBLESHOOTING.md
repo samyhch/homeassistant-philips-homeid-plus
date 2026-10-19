@@ -26,6 +26,13 @@ continues. Do not repeatedly restart Home Assistant to recover one appliance.
 
 ## Expired HomeID login
 
+When adding another device, select the saved HomeID session represented by an
+existing device. Entries sharing a refresh token are grouped into one choice;
+Air+ sessions are kept separate because their tokens have a different audience.
+You can explicitly select the normal email/OTP login for a different account.
+Saved-session discovery first uses HomeID and falls back to the IoT registry
+when HomeID lists no devices.
+
 Complete the reauthentication prompt in Devices & services with your HomeID email
 and verification code. Do not create a second account entry to work around an
 authentication error. Never include the verification code or tokens in an issue.

@@ -46,6 +46,13 @@
           "code": "Verification Code"
         }
       },
+      "saved_account": {
+        "title": "Use a saved HomeID account",
+        "description": "Choose a session identified by one of its existing devices. Devices sharing the same session are grouped together. Choose Sign in to another HomeID account to use the usual HomeID email verification.",
+        "data": {
+          "account": "Saved HomeID session"
+        }
+      },
       "cloud_devices": {
         "title": "Select Device",
         "description": "Select the device you want to add to Home Assistant.",
@@ -104,6 +111,7 @@
       "encryption_key_failed": "Could not obtain encryption key from device. The credentials may be cloud credentials (not local), or the device requires a manual encryption key. Use the credential extractor or provide the key manually.",
       "unknown": "An unexpected error occurred",
       "missing_email": "Please enter your email address",
+      "saved_session_expired": "This saved session was rejected. Reauthenticate its existing entry in Devices & services, or select Sign in to another HomeID account to add a device with a new session.",
       "missing_code": "Please enter the verification code",
       "otp_send_failed": "Failed to send verification code. Please check your email and try again.",
       "otp_failed": "Invalid verification code. Please try again.",

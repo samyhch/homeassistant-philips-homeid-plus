@@ -9,8 +9,10 @@ python -B -m unittest discover -s tests -v
 
 The syntax validator uses ast.parse and does not write protected __pycache__
 directories. The initial regression suite needs only the Python standard library.
-Its backend tests stub Home Assistant imports and exercise diagnostic routing;
-they do not replace full Home Assistant config-flow or device tests.
+Its backend tests stub Home Assistant imports and exercise diagnostic routing,
+account token rotation, concurrency and selected config-flow paths. Flow tests
+stub form/schema imports; they do not replace testing actual Home Assistant form
+rendering, schema validation, entry lifecycle or real devices.
 
 GitHub Actions runs the suite on both Python versions. HACS and Hassfest run
 separately. Changes to authentication, commands, entry migration or identifiers
