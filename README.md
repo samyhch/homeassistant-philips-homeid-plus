@@ -75,6 +75,12 @@ Do not configure two integrations against the same device at the same time. In p
 
 Automatic cross-domain migration from the three upstream integrations is not included in the public `v0.1.0` release. Existing users should remove the old entry and add the device to Philips HomeID Plus, or wait for a documented migration tool in a later release.
 
+## Help and development
+
+See [troubleshooting and known limitations](docs/TROUBLESHOOTING.md) for setup,
+availability and command errors, and [contributing](CONTRIBUTING.md) for local
+validation and regression tests.
+
 ## Project origins and acknowledgements
 
 Philips HomeID Plus combines and adapts functionality from three existing Home Assistant integrations:

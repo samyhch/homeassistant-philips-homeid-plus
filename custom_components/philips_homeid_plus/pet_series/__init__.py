@@ -342,6 +342,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_config_entry_first_refresh()
         _LOGGER.warning("HomeID Pet Series data fetched: %s; %d homes; %d devices", entry.title, len(coordinator.data.get("homes", [])), len(coordinator.data.get("devices", [])))
         if not coordinator.data.get("devices"):
+            from ..repair_helpers import report_missing_pet_devices
+
+            report_missing_pet_devices(hass, entry)
             raise ConfigEntryNotReady("HomeID Pet Series API returned no matching devices")
         hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
             "client": client, "coordinator": coordinator,
@@ -364,6 +367,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         await async_setup_services(hass, client)
         await _async_setup_frontend(hass)
+        from ..repair_helpers import clear_missing_pet_devices
+
+        clear_missing_pet_devices(hass, entry)
         _LOGGER.warning("HomeID Pet Series ready: %s; %d device(s), %d platform(s)",
                         entry.title, len(coordinator.data["devices"]), len(PLATFORMS))
         return True

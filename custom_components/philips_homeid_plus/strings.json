@@ -1,4 +1,10 @@
 {
+  "issues": {
+    "missing_pet_devices": {
+      "title": "HomeID could not find the feeder for {entry}",
+      "description": "Open the HomeID app with the same account and check that the feeder is present and controllable in the correct home. Restore account or sharing access if it changed, then reload this entry. Home Assistant retries automatically and this notice clears after successful setup. If you intentionally removed the feeder, remove its integration entry."
+    }
+  },
   "config": {
     "step": {
       "user": {

@@ -105,6 +105,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return await _async_setup_local_entry(hass, entry)
 
 
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Clean up entry-scoped Repair notices and Pet Series resources."""
+    from .repair_helpers import clear_missing_pet_devices
+
+    clear_missing_pet_devices(hass, entry)
+    if entry.data.get(CONF_IS_TUYA_PET):
+        from .pet_series import async_remove_entry as remove_pet_series
+
+        await remove_pet_series(hass, entry)
+
+
 async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a FUSION device via MQTT cloud relay."""
     from .cloud_api import CloudAuthError, CloudConnectionError, PhilipsCloudAPI
