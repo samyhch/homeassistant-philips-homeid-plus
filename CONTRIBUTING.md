@@ -3,9 +3,9 @@
 Run these checks from the repository root using Python 3.13 or 3.14:
 
 ```sh
+python -m pip install -r requirements-dev.txt
 python scripts/validate.py
 python -B -m unittest discover -s tests -v
-python -m pip install -r requirements-dev.txt
 python scripts/validate_resources.py
 ruff check custom_components scripts tests
 mypy
@@ -13,8 +13,9 @@ pytest --cov --cov-report=term --cov-report=xml
 ```
 
 The syntax validator uses ast.parse and does not write protected __pycache__
-directories. The initial regression suite needs only the Python standard library.
-Full quality checks require `requirements-dev.txt`. Coverage reports include all
+directories. The regression suite requires `requirements-dev.txt`, including
+the pinned `petsseries` SDK used by the production payload contract tests.
+Full quality checks use the same environment. Coverage reports include all
 integration sources, including unimported legacy modules; no 95% claim is made.
 Ruff currently enforces correctness rules across all sources; mypy is limited to
 the four files listed in pyproject.toml. These are staged baselines, not full
@@ -39,7 +40,9 @@ process. This checks actual HA imports, config forms and schema validation,
 account creation results, sensor construction, and account setup/unload dispatch.
 Cloud replies and platform forwarding are mocked; it does not test physical
 devices or persist entries into the running HA instance. The script has been
-verified with Home Assistant 2026.10.2 using fixture credentials only.
+verified with Home Assistant 2026.10.2 and 2026.10.4 using fixture credentials
+only. It also constructs the real Pet SDK adapters and checks preservation of
+existing feeder identities with synthetic discovery replies.
 
 Test actual device behavior separately before
 updating a production installation. Keep a backup of config entries, entity and

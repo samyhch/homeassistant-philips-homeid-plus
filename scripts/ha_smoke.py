@@ -91,6 +91,45 @@ async def main():
         assert forward.await_count == 1 and unload.await_count == 1
         api.close.assert_awaited_once()
     print("REAL_HA_SETUP_UNLOAD_AND_PLATFORM_DISPATCH_OK")
+    # Instantiate the actual pinned SDK client/managers with synthetic
+    # discovery. No HA credentials, live registries or appliance calls are used.
+    pet_client = importlib.import_module(prefix + ".pet_series.homeid_client")
+    from petsseries import PetsSeriesClient
+    from petsseries.models import Device, Home
+    pet_entry = types.SimpleNamespace(
+        entry_id="fixture-pet", title="Fixture feeder",
+        data={"tuya_device_id": "fixture-vendor", "model": "PAW5320"},
+    )
+    with patch.object(pet_client, "_registry_identities", return_value=(
+        ("previous-cpp_meal_calendar",),
+        {"fixture-vendor": ("previous-cpp", "fixture-vendor")},
+    )), patch.object(pet_client, "session_for", return_value=object()):
+        client = pet_client.HomeIDPetsClient(hass, pet_entry)
+    try:
+        home = Home(id="fixture-home", name="Fixture")
+        device = Device(id="current-cpp", name="Fixture feeder",
+                        vendor_id="fixture-vendor", product_ctn="PAW5320/02")
+        with patch.object(PetsSeriesClient, "get_homes", AsyncMock(return_value=[home])), patch.object(
+            PetsSeriesClient, "get_devices", AsyncMock(return_value=[device])
+        ):
+            assert await client.get_homes() == [home]
+            selected = await client.get_devices(home)
+        assert selected[0].id == "previous-cpp"
+        assert client.backend_device_id("previous-cpp") == "current-cpp"
+        assert client.events.config.base_url == client.meals.config.base_url == client.config.base_url
+        assert client.config.homes_url == client.config.base_url + "/api/homes"
+        meal = client.meals._parse_meal({"id":"fixture-meal", "name":"Fixture meal",
+            "amount":1, "time":"09:00", "repeatDays":[1], "enabled":True,
+            "deviceId":"current-cpp"})
+        assert meal.device_id == "previous-cpp" and meal.portion_amount == 1
+        event = client.events.parse_event({"type":"meal_dispensed", "id":"fixture-event",
+            "time":"2026-10-30T09:00:00Z", "deviceId":"current-cpp",
+            "deviceVendorId":"fixture-vendor"})
+        assert event.device_id == "previous-cpp"
+        assert event.time == "2026-10-30T09:00:00Z"
+    finally:
+        await client.close()
+    print("REAL_HA_PRODUCTION_FEEDER_IDENTITY_AND_SDK_OK")
     # Construct the actual four model profiles and exercise controls against
     # AsyncMocks only. No production entry/device is read or connected.
     from unittest.mock import Mock

@@ -2,7 +2,7 @@
 
 An unofficial Home Assistant custom integration that brings several Philips HomeID product families together under one integration.
 
-Current release: [v0.1.3](https://github.com/samyhch/homeassistant-philips-homeid-plus/releases/tag/v0.1.3).
+Current release: [v0.1.4](https://github.com/samyhch/homeassistant-philips-homeid-plus/releases/tag/v0.1.4).
 See the [changelog](CHANGELOG.md) for this maintenance release and the
 [implementation status](docs/IMPLEMENTATION_STATUS.md) for deferred features.
 The project combines three upstream integrations; their authors and license
@@ -36,19 +36,21 @@ extract its contents into `custom_components/philips_homeid_plus/` (not directly
 into `custom_components/`). Back up Home Assistant before updating an existing
 installation. Do not delete/recreate entries for a normal update of this integration.
 
-## What's included in v0.1.3
+## What's included in v0.1.4
 
-- Saved HomeID sessions, shared token refresh and an optional account inventory manager.
-- Privacy-safe diagnostic exports, transport health and actionable Repairs.
-- English/Bulgarian messages for common feeder/CoAP command failures and validation before writes.
-- PAW3320 camera-capability filtering, independent feeder status reads, and CoAP connection/unload fixes.
-- Dashboard and notification blueprint examples, plus a supported-device overview.
+- Restored feeder meal calendars and dispensing history through the current HomeID service.
+- Existing Home Assistant entity identities retained when cloud device identifiers differ.
+- Token refresh without repeatedly unloading feeder entries and calendars.
+- Distinct camera-bridge ports, camera-capability checks and bounded restart retries.
+- Saved account sessions, diagnostic exports, Repairs and dashboard/notification examples from earlier releases.
 
 The N-portions control retains its previous command register; the proposed
 PAW3320 remapping is not included. No automatic retries of feeding commands or
 firmware installation are enabled. An optional diagnostic counts observed feeding
 events, **not** verified daily portions. Automatic device-subentry migration,
 editable schedules and general local/cloud failover remain future work.
+Physical feeding commands, schedule writes and live video were not verified for
+this maintenance release; see the [verification matrix](SUPPORTED_DEVICES.md).
 
 ## Central HomeID account
 
@@ -101,7 +103,7 @@ The owner's previously tested feeder models are:
 - PAW5320/02
 
 The adapted Pet Series code also contains compatibility handling for the PAW3300 family, but it is not part of the initial verified test set.
-Those physical checks do not certify every v0.1.3 entity or firmware variant;
+Those physical checks do not certify every v0.1.4 entity or firmware variant;
 see the verification matrix for the exact limits of the available evidence.
 
 ### Air purifiers and humidifiers
@@ -124,7 +126,7 @@ This list means that a model profile exists in the integration. Exact entities a
 Do not configure two integrations against the same device at the same time. In particular, a Philips air purifier may support only one active long-lived CoAP observer. Back up your Home Assistant configuration before migrating existing entries.
 
 Automatic cross-domain migration from the three upstream integrations is **not
-included in v0.1.3**. Do not delete the old entry as the first migration step:
+included in v0.1.4**. Do not delete the old entry as the first migration step:
 
 1. Make a full backup and record the existing entity IDs and device associations.
 2. Disable the old integration entry before connecting the same device here.

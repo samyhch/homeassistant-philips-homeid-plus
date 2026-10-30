@@ -44,6 +44,56 @@ action name and error code in a bug report, together with the integration versio
 Discovery access alone does not establish permission to execute every command.
 Do not repeatedly retry feeding or firmware commands when their outcome is unknown.
 
+## Missing feeder calendar or dispensing history
+
+Version 0.1.4 reads schedules and history from the current HomeID production Pet
+service and translates backend identifiers to existing Home Assistant identities.
+An older endpoint can return empty lists without reporting an authentication
+failure. Update the integration, restart Home Assistant once to load the new
+Python modules, and check the affected entry's calendar and last-dispense data.
+Do not delete and recreate the entry or manually change device identifiers.
+
+If data are still missing, confirm that the schedule/history exists in the
+official HomeID app for the same account and feeder. A genuinely empty schedule
+or history is valid, and the integration does not create substitute meals or
+infer that feeding occurred. Include the model, firmware, integration version
+and sanitized diagnostics when reporting a persistent discrepancy.
+
+The schedule and history reads do not validate physical feeding or calendar
+writes. Do not create or modify meals merely to test recovery.
+
+## Repeated feeder setup during token refresh
+
+Normal refresh-token rotation no longer reloads feeder entries in 0.1.4, so
+calendars and HTTP sessions can remain loaded. Changes to actual configuration
+or options still reload the entry. A brief missing-entity warning during a
+deliberate reload does not by itself mean the calendar has been lost.
+
+If repeated setup continues without configuration changes, inspect the entry's
+authentication and setup status. Report the integration version and sanitized
+timestamps; never share token values. Reauthentication is appropriate for an
+explicit authentication failure, not as a general response to every timeout.
+
+## Camera bridge fails or repeatedly restarts
+
+The feeder's camera transport has a separate lifecycle from feeding status and
+meal data. Version 0.1.4 reserves different RTSP ports across entries and checks
+camera capability at each stream/start path. PAW3320 has no camera and must not
+start a bridge. Existing unsupported camera registry records are not deleted
+automatically; disable them if they are still shown as unavailable.
+
+A bridge startup failure no longer prevents an always-mode feeder entry from
+loading. Retries back off, and repeated failures introduce a cooldown. Opening
+a viewer does not bypass that cooldown. Check the camera mode and whether the
+official app can view the camera, then collect sanitized diagnostics if the
+failure continues. Do not repeatedly reload the entry to force retries.
+
+An address-in-use error identifies a local port conflict; an exit status alone
+does not establish failed camera hardware or an expired account. Report the
+model, integration version and redacted error category, without stream URLs,
+credentials or device identifiers. No successful video stream is implied by a
+healthy feeder status sensor or an open RTSP port.
+
 ## Collecting diagnostics
 
 Download diagnostics from the affected integration entry. Diagnostic exports
