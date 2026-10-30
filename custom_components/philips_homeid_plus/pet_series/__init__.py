@@ -205,18 +205,28 @@ class PhilipsPetsSeriesDataUpdateCoordinator(DataUpdateCoordinator):
                 # Fetch settings for devices
                 for device in home_devices:
                     try:
-                        device_settings = await self._client.get_settings(home, device.id)
+                        device_settings = (
+                            await self._client.get_settings(home, device.id)
+                            if self._client.has_legacy_settings(device.id) else {}
+                        )
                         settings[device.id] = device_settings or {}
                     except Exception as e:
-                        _LOGGER.warning("Failed to fetch settings for device %s: %s", device.id, e)
+                        if self._client.note_legacy_settings_error(device.id, e):
+                            _LOGGER.debug("Tuya-only device has no legacy mode settings")
+                        else:
+                            _LOGGER.warning("Failed to fetch settings for device %s: %s", device.id, e)
                         settings[device.id] = {}
 
                     # Fetch full settings
                     try:
-                        device_full_settings = await self._client.devices_manager.get_device_settings(home, device)
-                        full_settings[device.id] = device_full_settings
+                        if self._client.has_legacy_settings(device.id, "full"):
+                            device_full_settings = await self._client.devices_manager.get_device_settings(home, device)
+                            full_settings[device.id] = device_full_settings
                     except Exception as e:
-                        _LOGGER.warning("Failed to fetch full settings for device %s: %s", device.id, e)
+                        if self._client.note_legacy_settings_error(device.id, e, "full"):
+                            _LOGGER.debug("Tuya-only device has no legacy full settings")
+                        else:
+                            _LOGGER.warning("Failed to fetch full settings for device %s: %s", device.id, e)
 
                     # Prefer the app-compatible cloud DP status. TinyTuya is
                     # only a fallback for installations with a real LAN IP.
@@ -360,7 +370,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await bridge.async_start()
         beacons = BeaconListener()
         await beacons.async_start()
-        hass.data[DOMAIN][entry.entry_id].update(bridge=bridge, beacons=beacons)
+        hass.data[DOMAIN][entry.entry_id].update(
+            bridge=bridge, beacons=beacons, reload_signature=_entry_reload_signature(entry)
+        )
         entry.async_on_unload(entry.add_update_listener(_async_update_listener))
         # Preserve the existing one-portion button's registry identity/history.
         registry = er.async_get(hass)
@@ -587,8 +599,23 @@ def _async_remove_stale_entities(hass: HomeAssistant, entry: ConfigEntry) -> Non
             registry.async_remove(registry_entry.entity_id)
 
 
+def _entry_reload_signature(entry: ConfigEntry) -> tuple[dict, dict]:
+    """Reload real configuration changes without unloading on token rotation."""
+    return (
+        {key: value for key, value in entry.data.items() if key != "cloud_refresh_token"},
+        dict(entry.options),
+    )
+
+
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload the entry when its options change."""
+    """Keep calendars and sessions in place when only the saved token changes."""
+    runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if not isinstance(runtime, dict):
+        return
+    current = _entry_reload_signature(entry)
+    if runtime.get("reload_signature") == current:
+        return
+    runtime["reload_signature"] = current
     await hass.config_entries.async_reload(entry.entry_id)
 
 

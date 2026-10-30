@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.1.4 — 2026-10-30
+
+Feeder telemetry and camera-bridge reliability maintenance. The broader
+improvement roadmap remains open.
+
+- Read feeder schedules and history from the current HomeID production service,
+  accepting the current meal fields and translating backend device ownership
+  without changing established Home Assistant entity identities.
+- Discover account homes before generating fallback devices, keep each feeder
+  with its actual home, and retain errors instead of inventing replacement
+  devices when discovery is incomplete.
+- Keep feeder entries, calendars and sessions loaded when only the saved refresh
+  token rotates; real configuration and option changes still reload the entry.
+- Allocate distinct camera-bridge ports across entries, enforce camera capability
+  checks at stream/start entry points, and preserve retry backoff across failed
+  child processes. Stop retry/monitor tasks and owned HTTP sessions on unload.
+- Keep feeder setup available when an always-on camera bridge cannot start.
+  Skip legacy settings resources only after a confirmed HTTP 400/404 for a
+  synthetic Tuya-only device; authentication, network and server failures remain
+  visible.
+
+### Verification and limits
+
+Runtime read checks on PAW3320/PAW5320 restored existing meal calendars and
+dispensing history while retaining established entity IDs through restart and
+refresh. Regression coverage exercises identity selection, production API
+adapters, token-only updates and bridge lifecycle behavior.
+
+No physical feeding command, schedule write or successful live video frame was
+verified for this release. Existing portion-control behavior remains unchanged;
+no automatic retries of feeding commands or firmware installation are enabled.
+This is not certification of every model, firmware or remaining roadmap item.
+
+Back up Home Assistant before updating. Do not delete and recreate entries for
+a normal upgrade. To roll back, restore the previous integration version and
+the matching pre-update HA backup if configuration or registry data also need
+restoring.
+
 ## 0.1.3 — 2026-10-20
 
 Maintenance and account-session improvements; this is not the completion of the

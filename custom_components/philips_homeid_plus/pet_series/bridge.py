@@ -30,6 +30,7 @@ from tuya_mobile import mqtt_client_id, mqtt_credentials
 
 from homeassistant.helpers.network import get_url
 
+from .capabilities import supports_camera
 from .const import CONF_CAMERA_MODE, CONF_IDLE_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,6 +77,8 @@ _FAILURE_WINDOW = 60.0
 _RESTART_BACKOFF_START = 5
 _RESTART_BACKOFF_MAX = 300
 _RESTART_MAX_ATTEMPTS = 8
+_RESTART_STABLE_SECONDS = 300
+_RESTART_COOLDOWN = 1800
 
 # Tuya's mobile API and MQTT brokers are region-specific and share a host
 # suffix ("a1.tuyaeu.com" -> "m1.tuyaeu.com").
@@ -133,6 +136,7 @@ class BridgeProcess:
     # its camera session while still running.
     failures: list[float] = field(default_factory=list)
     failed: asyncio.Event = field(default_factory=asyncio.Event)
+    started_at: float = field(default_factory=time.monotonic)
 
     @property
     def stream_url(self) -> str:
@@ -165,6 +169,44 @@ class PhilipsCameraBridgeManager:
         self._ports: dict[str, int] = {}
         self._start_lock = asyncio.Lock()
         self._idle_task: asyncio.Task[None] | None = None
+        # Opening an RTSP socket does not prove the camera session is healthy.
+        # Keep this budget across replacement children that exit shortly after.
+        self._restart_failures: dict[str, int] = {}
+        self._retry_after: dict[str, float] = {}
+        self._retry_tasks: set[asyncio.Task[None]] = set()
+
+    def _reserve_port(self, device_key: str) -> int:
+        """Keep RTSP ports stable and distinct across integration entries."""
+        reservations = self.hass.data.setdefault(f"{DOMAIN_LOG_PREFIX}_ports", {})
+        owner = (self.entry.entry_id, device_key)
+        if owner not in reservations:
+            used = set(reservations.values())
+            port = BRIDGE_PORT_BASE
+            while port in used:
+                port += 1
+            reservations[owner] = port
+        self._ports[device_key] = reservations[owner]
+        return reservations[owner]
+
+    def _record_failure(self, device_key: str, *, lifetime: float = 0) -> float:
+        """Return a retry delay shared by all failed children of one device."""
+        now = time.monotonic()
+        previous_deadline = self._retry_after.get(device_key, 0)
+        if lifetime >= _RESTART_STABLE_SECONDS or (
+            self._restart_failures.get(device_key, 0) >= _RESTART_MAX_ATTEMPTS
+            and now >= previous_deadline
+        ):
+            self._restart_failures[device_key] = 0
+        failures = self._restart_failures.get(device_key, 0) + 1
+        self._restart_failures[device_key] = failures
+        if failures >= _RESTART_MAX_ATTEMPTS:
+            delay = _RESTART_COOLDOWN
+        else:
+            delay = min(
+                _RESTART_BACKOFF_START * 2 ** (failures - 1), _RESTART_BACKOFF_MAX
+            )
+        self._retry_after[device_key] = now + delay
+        return delay
 
     @property
     def camera_mode(self) -> str:
@@ -269,15 +311,31 @@ class PhilipsCameraBridgeManager:
 
         # Reserve a stable port per device so a bridge started later keeps the
         # RTSP URL it was first given.
-        for index, device in enumerate(devices):
+        for device in devices:
             self._cameras[str(device.id)] = device
-            self._ports[str(device.id)] = BRIDGE_PORT_BASE + index
+            self._reserve_port(str(device.id))
 
         await self._async_start_credential_server()
         try:
             if mode == CAMERA_MODE_ALWAYS:
                 for device in devices:
-                    await self._async_start_device(device, self._ports[str(device.id)])
+                    try:
+                        await self._async_start_device(
+                            device, self._ports[str(device.id)]
+                        )
+                    except Exception as err:
+                        # A failed stream must not unload the feeder's status,
+                        # schedules, events or controls.
+                        delay = self._record_failure(str(device.id))
+                        _LOGGER.error(
+                            "Camera bridge startup failed for %s: %s; retry in %.0fs",
+                            device.id,
+                            err,
+                            delay,
+                        )
+                        self._schedule_retry(
+                            device, self._ports[str(device.id)], delay
+                        )
             else:
                 self._idle_task = self.hass.async_create_background_task(
                     self._async_reap_idle(), name=f"{DOMAIN_LOG_PREFIX}-idle-reaper"
@@ -288,10 +346,16 @@ class PhilipsCameraBridgeManager:
 
     async def async_get_stream_url(self, device: Any) -> str | None:
         """Return an RTSP URL, minting an on-demand session when required."""
-        if self._stopping or self.camera_mode == CAMERA_MODE_DISABLED:
+        if (
+            self._stopping
+            or self.camera_mode == CAMERA_MODE_DISABLED
+            or not supports_camera(device)
+        ):
             return None
         device_key = str(device.id)
         async with self._start_lock:
+            if self._stopping:
+                return None
             bridge = self._processes.get(device_key)
             if bridge is not None and bridge.process.returncode is None:
                 bridge.last_requested = time.monotonic()
@@ -300,16 +364,22 @@ class PhilipsCameraBridgeManager:
                 # Supervision owns the lifecycle in this mode, so a missing
                 # bridge means it is mid-restart rather than idle.
                 return None
+            if time.monotonic() < self._retry_after.get(device_key, 0):
+                return None
             if self._sidecar_port is None:
                 await self._async_start_credential_server()
             self._cameras.setdefault(device_key, device)
-            port = self._ports.setdefault(
-                device_key, BRIDGE_PORT_BASE + len(self._ports)
-            )
+            port = self._reserve_port(device_key)
             try:
                 await self._async_start_device(device, port)
             except Exception as err:
-                _LOGGER.error("Unable to start camera bridge on demand: %s", err)
+                delay = self._record_failure(device_key)
+                _LOGGER.error(
+                    "Unable to start camera bridge for %s on demand: %s; retry in %.0fs",
+                    device_key,
+                    err,
+                    delay,
+                )
                 return None
             bridge = self._processes.get(device_key)
             return bridge.stream_url if bridge is not None else None
@@ -333,11 +403,18 @@ class PhilipsCameraBridgeManager:
             return
         if bridge.monitor_task is not None:
             bridge.monitor_task.cancel()
+            await asyncio.gather(bridge.monitor_task, return_exceptions=True)
         await self._async_stop_bridge_process(bridge)
 
     async def async_stop(self) -> None:
         """Stop all child processes and remove the credential endpoint."""
         self._stopping = True
+        retry_tasks = list(self._retry_tasks)
+        for task in retry_tasks:
+            task.cancel()
+        if retry_tasks:
+            await asyncio.gather(*retry_tasks, return_exceptions=True)
+        self._retry_tasks.clear()
         if self._idle_task is not None:
             self._idle_task.cancel()
             try:
@@ -387,17 +464,27 @@ class PhilipsCameraBridgeManager:
         return product.startswith(CAMERA_PRODUCT_PREFIXES)
 
     async def _async_start_credential_server(self) -> None:
+        if self._runner is not None:
+            return
         app = web.Application()
         app.router.add_get("/webrtc", self._handle_webrtc)
         app.router.add_get("/health", self._handle_health)
-        self._runner = web.AppRunner(app, access_log=None)
-        await self._runner.setup()
-        site = web.TCPSite(self._runner, "127.0.0.1", 0)
-        await site.start()
-        server = site._server  # aiohttp exposes the selected ephemeral port here.
-        if server is None or not server.sockets:
-            raise RuntimeError("credential endpoint did not bind a socket")
-        self._sidecar_port = int(server.sockets[0].getsockname()[1])
+        runner = web.AppRunner(app, access_log=None)
+        try:
+            await runner.setup()
+            site = web.TCPSite(runner, "127.0.0.1", 0)
+            await site.start()
+            server = site._server  # aiohttp exposes the selected ephemeral port here.
+            if server is None or not server.sockets:
+                raise RuntimeError("credential endpoint did not bind a socket")
+            port = int(server.sockets[0].getsockname()[1])
+            if self._stopping:
+                raise asyncio.CancelledError
+        except BaseException:
+            await runner.cleanup()
+            raise
+        self._runner = runner
+        self._sidecar_port = port
 
     async def _handle_health(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
@@ -476,6 +563,8 @@ class PhilipsCameraBridgeManager:
         return secrets.compare_digest(request.headers.get("Authorization", ""), expected)
 
     async def _async_start_device(self, device: Any, port: int) -> None:
+        if not supports_camera(device):
+            raise ValueError("device model does not support a camera")
         if self._sidecar_port is None:
             raise RuntimeError("credential endpoint is not running")
         device_id = str(
@@ -520,12 +609,14 @@ class PhilipsCameraBridgeManager:
         )
         bridge = BridgeProcess(device_id, device_key, port, path, process, log_task)
         try:
+            if self._stopping:
+                raise asyncio.CancelledError
             await self._async_wait_until_ready(bridge)
-        except Exception:
-            log_task.cancel()
-            if process.returncode is None:
-                process.terminate()
-                await process.wait()
+            if self._stopping:
+                raise asyncio.CancelledError
+        except BaseException:
+            # Cancellation needs the same bounded cleanup as startup failure.
+            await self._async_stop_bridge_process(bridge)
             raise
         self._processes[device_key] = bridge
         bridge.monitor_task = asyncio.create_task(
@@ -544,7 +635,7 @@ class PhilipsCameraBridgeManager:
         struggling.
         """
         reason = await self._async_wait_for_failure(bridge)
-        if self._stopping:
+        if self._stopping or self._processes.get(bridge.device_key) is not bridge:
             return
         if self._processes.get(bridge.device_key) is bridge:
             self._processes.pop(bridge.device_key, None)
@@ -560,31 +651,70 @@ class PhilipsCameraBridgeManager:
                 reason,
             )
             return
-        _LOGGER.error("Camera bridge for %s %s; restarting", bridge.device_key, reason)
-
-        delay = _RESTART_BACKOFF_START
-        for attempt in range(1, _RESTART_MAX_ATTEMPTS + 1):
-            await asyncio.sleep(delay)
-            if self._stopping:
-                return
-            try:
-                await self._async_start_device(device, bridge.port)
-                return
-            except Exception as err:
-                _LOGGER.error(
-                    "Unable to restart camera bridge for %s (attempt %s/%s): %s",
-                    bridge.device_key,
-                    attempt,
-                    _RESTART_MAX_ATTEMPTS,
-                    err,
-                )
-                delay = min(delay * 2, _RESTART_BACKOFF_MAX)
-        _LOGGER.error(
-            "Giving up on the camera bridge for %s after %s attempts; reload the "
-            "integration to try again",
-            bridge.device_key,
-            _RESTART_MAX_ATTEMPTS,
+        delay = self._record_failure(
+            bridge.device_key, lifetime=time.monotonic() - bridge.started_at
         )
+        _LOGGER.error(
+            "Camera bridge for %s %s; retry in %.0fs (failure %s)",
+            bridge.device_key,
+            reason,
+            delay,
+            self._restart_failures[bridge.device_key],
+        )
+        self._schedule_retry(device, bridge.port, delay, bridge.last_requested)
+
+    def _schedule_retry(
+        self,
+        device: Any,
+        port: int,
+        delay: float,
+        last_requested: float | None = None,
+    ) -> None:
+        task = self.hass.async_create_background_task(
+            self._async_retry_device(device, port, delay, last_requested),
+            name=f"{DOMAIN_LOG_PREFIX}-retry-{device.id}",
+        )
+        self._retry_tasks.add(task)
+        task.add_done_callback(self._retry_tasks.discard)
+
+    async def _async_retry_device(
+        self,
+        device: Any,
+        port: int,
+        delay: float,
+        last_requested: float | None,
+    ) -> None:
+        """Retry with a persistent budget without racing a viewer request."""
+        while not self._stopping:
+            await asyncio.sleep(delay)
+            async with self._start_lock:
+                if self._stopping or str(device.id) in self._processes:
+                    return
+                remaining = self._retry_after.get(str(device.id), 0) - time.monotonic()
+                if remaining > 0:
+                    # A viewer may have attempted a start while this retry was
+                    # asleep. Respect its newer deadline rather than bypassing
+                    # the shared backoff/cooldown budget.
+                    delay = remaining
+                    continue
+                if self.camera_mode == CAMERA_MODE_ON_DEMAND and (
+                    last_requested is None
+                    or time.monotonic() - last_requested >= self.idle_timeout
+                ):
+                    return
+                try:
+                    await self._async_start_device(device, port)
+                    if last_requested is not None:
+                        self._processes[str(device.id)].last_requested = last_requested
+                    return
+                except Exception as err:
+                    delay = self._record_failure(str(device.id))
+                    _LOGGER.error(
+                        "Unable to restart camera bridge for %s: %s; retry in %.0fs",
+                        device.id,
+                        err,
+                        delay,
+                    )
 
     def _note_failure_line(self, device_key: str, line: str) -> None:
         """Flag a bridge whose logs show it has lost the camera session.
@@ -624,11 +754,13 @@ class PhilipsCameraBridgeManager:
             for task in (waiter, failed):
                 if not task.done():
                     task.cancel()
+            await asyncio.gather(waiter, failed, return_exceptions=True)
 
     @staticmethod
     async def _async_stop_bridge_process(bridge: BridgeProcess) -> None:
         """Terminate a bridge process and stop tailing its logs."""
         bridge.log_task.cancel()
+        await asyncio.gather(bridge.log_task, return_exceptions=True)
         if bridge.process.returncode is None:
             bridge.process.terminate()
             try:

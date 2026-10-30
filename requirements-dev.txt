@@ -3,3 +3,4 @@ pytest-cov==7.1.0
 ruff==0.17.1
 mypy==2.4.0
 PyYAML==6.0.3
+petsseries==1.1.0
