@@ -1,5 +1,5 @@
 # Isolated compatibility checks, never install into an existing HA instance.
-homeassistant==2026.10.2
+homeassistant==2026.10.4
 petsseries==1.1.0
 tuya-mobile==1.2.0
 aioairctrl==0.3.1
