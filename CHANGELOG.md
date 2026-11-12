@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5
+
+- View added, new and not-currently-listed devices from HomeID account Options.
+  Add devices using the saved account session. No device is removed automatically.
+- See connection health and the time of the last successful update in Home Assistant.
+- Hide camera motion entities on PAW3320 without deleting existing registry records.
+- Keep feeding commands and schedules unchanged. Supervised portion verification
+  remains a separate step.
+
 ## 0.1.4 — 2026-10-30
 
 Feeder telemetry and camera-bridge reliability maintenance. The broader
