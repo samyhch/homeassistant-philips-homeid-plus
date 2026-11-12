@@ -18,6 +18,45 @@ from .const import CONF_CLOUD_REFRESH_TOKEN, CONF_OAUTH_CLIENT, DOMAIN, OAUTH_CL
 _LOGGER = logging.getLogger(__name__)
 
 
+def _identity(value):
+    if not isinstance(value, str):
+        return ""
+    value = value.strip()
+    compact = value.lower().replace(":", "").replace("-", "")
+    if len(compact) == 12 and all(char in "0123456789abcdef" for char in compact):
+        return compact
+    return value
+
+
+def inventory_groups(appliances, entries, account_entry):
+    """Build a local-only inventory without changing or exposing registry IDs."""
+    token = account_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
+    linked = [entry for entry in entries if token
+              and not entry.data.get("is_homeid_account")
+              and entry.data.get(CONF_CLOUD_REFRESH_TOKEN) == token
+              and entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID) == OAUTH_CLIENT_HOMEID]
+    groups = {"configured": [], "new": [], "not_listed": [], "unidentified": []}
+    matched = set()
+    for appliance in appliances:
+        name = str(appliance.get("friendlyName") or appliance.get("name") or appliance.get("deviceName") or appliance.get("ctn") or "Philips").replace("\n", " ")[:120]
+        ids = {_identity(appliance.get(key)) for key in ("externalDeviceId", "macAddress", "deviceId", "id", "thingName")} - {""}
+        matches = [index for index, entry in enumerate(linked) if ids & (
+            {_identity(entry.data.get(key)) for key in ("tuya_device_id", "cpp_id", "device_id", "thing_name")} - {""}
+        )]
+        if len(matches) == 1:
+            matched.add(matches[0])
+            groups["configured"].append(name)
+        elif not ids or matches:
+            groups["unidentified"].append(name)
+        else:
+            groups["new"].append(name)
+    groups["not_listed"] = [
+        str(getattr(entry, "title", "Philips")).replace("\n", " ")[:120]
+        for index, entry in enumerate(linked) if index not in matched
+    ]
+    return {key: tuple(sorted(names, key=str.casefold)) for key, names in groups.items()}
+
+
 def linked_device_count(entries, account_entry):
     """Count existing entries sharing this session without changing identities."""
     token = account_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
@@ -40,6 +79,7 @@ class HomeIDAccountCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=getattr(entry, "options", {}).get("inventory_interval", 15)),
         )
         self.entry = entry
+        self.inventory = {}
 
     async def _async_update_data(self):
         api = PhilipsCloudAPI()
@@ -48,10 +88,12 @@ class HomeIDAccountCoordinator(DataUpdateCoordinator):
             appliances = await api.get_appliances_via_homeid(tokens)
             if not appliances:
                 appliances = await api.get_devices(tokens["access_token"])
+            entries = self.hass.config_entries.async_entries(DOMAIN)
+            self.inventory = inventory_groups(appliances, entries, self.entry)
             return {
                 "discovered_devices": len(appliances),
                 "configured_devices": linked_device_count(
-                    self.hass.config_entries.async_entries(DOMAIN), self.entry
+                    entries, self.entry
                 ),
             }
         except (CloudConnectionError, aiohttp.ClientError, TimeoutError) as err:
@@ -90,7 +132,31 @@ class HomeIDAccountOptionsFlow(config_entries.OptionsFlow):
     """Refresh inventory or start device onboarding with the saved account."""
 
     async def async_step_init(self, user_input=None):
-        return self.async_show_menu(step_id="account", menu_options=["add_device", "refresh", "settings"])
+        return self.async_show_menu(step_id="account", menu_options=["inventory", "add_device", "refresh", "settings"])
+
+    async def async_step_inventory(self, user_input=None):
+        """Show the last successful inventory in the account's Options only."""
+        runtime = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
+        if not runtime:
+            return self.async_abort(reason="account_not_loaded")
+        coordinator = runtime["account_coordinator"]
+        if not coordinator.last_update_success:
+            return self.async_abort(reason="account_refresh_failed")
+        if user_input is not None:
+            return await self.async_step_init()
+        from html import escape
+        import re
+
+        def safe_name(name):
+            return re.sub(r"([\\`*_{}\[\]()#!|])", r"\\\1", escape(name))
+
+        return self.async_show_form(
+            step_id="inventory",
+            description_placeholders={
+                key: ", ".join(safe_name(name) for name in coordinator.inventory.get(key, ())) or "—"
+                for key in ("configured", "new", "not_listed", "unidentified")
+            },
+        )
 
     async def async_step_settings(self, user_input=None):
         """Adjust account inventory polling, not appliance command frequency."""

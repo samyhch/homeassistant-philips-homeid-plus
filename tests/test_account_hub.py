@@ -104,6 +104,29 @@ class AccountHubTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["discovered_devices"], 2)
         self.api.get_devices.assert_awaited_once_with("access")
 
+    async def test_inventory_matches_mac_and_keeps_names_out_of_diagnostics_data(self):
+        self.device.data["cpp_id"] = "AA:BB:CC:DD:EE:FF"
+        self.api.get_appliances_via_homeid.return_value = [
+            {"name": "Private feeder", "macAddress": "aa-bb-cc-dd-ee-ff"},
+            {"name": "New feeder", "externalDeviceId": "new-id"},
+            {"name": "Uncertain appliance"},
+        ]
+        coordinator = self.hub.HomeIDAccountCoordinator(self.hass, self.entry)
+        result = await coordinator._async_update_data()
+        self.assertEqual(coordinator.inventory["configured"], ("Private feeder",))
+        self.assertEqual(coordinator.inventory["new"], ("New feeder",))
+        self.assertEqual(coordinator.inventory["unidentified"], ("Uncertain appliance",))
+        self.assertEqual(coordinator.inventory["not_listed"], ())
+        self.assertNotIn("Private feeder", str(result))
+
+    def test_other_account_does_not_match(self):
+        self.device.data.update(cpp_id="fixture-id", cloud_refresh_token="another")
+        groups = self.hub.inventory_groups(
+            [{"name": "Fixture", "id": "fixture-id"}], [self.device], self.entry
+        )
+        self.assertEqual(groups["new"], ("Fixture",))
+        self.assertEqual(groups["configured"], ())
+
     async def test_empty_account_is_valid(self):
         self.api.get_appliances_via_homeid.return_value = []
         result = await self.hub.HomeIDAccountCoordinator(self.hass, self.entry)._async_update_data()

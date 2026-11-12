@@ -195,10 +195,15 @@
       "account": {
         "title": "HomeID account management",
         "menu_options": {
+          "inventory": "View account devices",
           "add_device": "Discover and add devices",
           "refresh": "Refresh account inventory",
           "settings": "Inventory polling interval"
         }
+      },
+      "inventory": {
+        "title": "HomeID device inventory",
+        "description": "Already added: {configured}\n\nNew: {new}\n\nNot in the latest list: {not_listed}\n\nCould not identify: {unidentified}\n\nAn absent device is not automatically removed. To add a device, return to the account menu and choose Discover and add devices."
       },
       "settings": {
         "title": "HomeID inventory settings",

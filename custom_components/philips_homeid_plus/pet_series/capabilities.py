@@ -27,3 +27,8 @@ def supports_camera(device):
 def supports_datapoint(device, dp_id):
     """Filter only known camera-only controls, not optional feeding settings."""
     return str(dp_id) not in CAMERA_DATAPOINTS or supports_camera(device)
+
+
+def supports_event(device, event_type):
+    """Account-wide event lists are not evidence of camera hardware."""
+    return event_type != "motion_detected" or supports_camera(device)

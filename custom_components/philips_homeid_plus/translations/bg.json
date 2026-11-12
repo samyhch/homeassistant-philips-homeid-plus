@@ -18,7 +18,8 @@
   },
   "options": {
     "step": {
-      "account": {"title": "Управление на HomeID акаунт", "menu_options": {"add_device": "Открий и добави устройства", "refresh": "Обнови списъка", "settings": "Интервал за обновяване на списъка"}},
+      "account": {"title": "Управление на HomeID акаунт", "menu_options": {"inventory": "Устройства в акаунта", "add_device": "Открий и добави устройства", "refresh": "Обнови списъка", "settings": "Интервал за обновяване на списъка"}},
+      "inventory": {"title": "Устройства в HomeID", "description": "Добавени: {configured}\n\nНови: {new}\n\nНе са в последния списък: {not_listed}\n\nНеразпознати: {unidentified}\n\nЛипсващо устройство не се премахва автоматично. За добавяне се върнете в менюто на акаунта."},
       "settings": {"title": "Настройки на HomeID списъка", "description": "Интервалът обновява само списъка с устройства, не отделните уреди.", "data": {"inventory_interval": "Интервал в минути (1–60)"}}
     },
     "error": {"invalid_inventory_interval": "Изберете цяло число от 1 до 60."}

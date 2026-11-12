@@ -27,6 +27,8 @@ class PetCapabilitiesTests(unittest.TestCase):
         for model in ("PAW3320", "PAW3320/02", " paw3320/02 "):
             device = SimpleNamespace(product_ctn=model)
             self.assertFalse(capabilities.supports_camera(device))
+            self.assertFalse(capabilities.supports_event(device, "motion_detected"))
+            self.assertTrue(capabilities.supports_event(device, "meal_dispensed"))
             for dp in capabilities.CAMERA_DATAPOINTS:
                 self.assertFalse(capabilities.supports_datapoint(device, dp))
 
@@ -39,6 +41,7 @@ class PetCapabilitiesTests(unittest.TestCase):
         for model in ("PAW5320/02", "", None, "future-model"):
             device = SimpleNamespace(product_ctn=model)
             self.assertTrue(capabilities.supports_camera(device))
+            self.assertTrue(capabilities.supports_event(device, "motion_detected"))
             self.assertTrue(capabilities.supports_datapoint(device, "103"))
         self.assertTrue(capabilities.supports_camera(SimpleNamespace()))
 
@@ -62,6 +65,7 @@ class PetPlatformFilteringTests(unittest.IsolatedAsyncioTestCase):
             "DOMAIN": "fixture", "iter_home_devices": lambda _: [(None, device)],
             "datapoints": dp_namespace["datapoints"],
             "supports_camera": capabilities.supports_camera,
+            "supports_event": capabilities.supports_event,
             "supports_datapoint": capabilities.supports_datapoint,
             "firmware": SimpleNamespace(has_ota_module=lambda *args: False),
         }

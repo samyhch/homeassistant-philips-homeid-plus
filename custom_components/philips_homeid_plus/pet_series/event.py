@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
+from .capabilities import supports_event
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ async def async_setup_entry(
         PhilipsPetsSeriesEventEntity(coordinator, home, device, event_type)
         for home, device in iter_home_devices(coordinator)
         for event_type in event_types
-        if isinstance(event_type, str) and event_type
+        if isinstance(event_type, str) and event_type and supports_event(device, event_type)
     )
 
 

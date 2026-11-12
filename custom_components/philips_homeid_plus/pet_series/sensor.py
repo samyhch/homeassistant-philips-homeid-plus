@@ -22,7 +22,7 @@ from petsseries.api import PetsSeriesClient
 from . import DOMAIN, PhilipsPetsSeriesDataUpdateCoordinator
 from .const import REMOVED_DP_SENSORS  # noqa: F401  (documented alongside _READ_ONLY_TUYA_DPS)
 from .datapoints import datapoints
-from .capabilities import supports_camera
+from .capabilities import supports_camera, supports_event
 from .feeding_history import observed_feedings_today
 from . import firmware
 from .entity import PhilipsPetsSeriesEntity, iter_home_devices
@@ -106,6 +106,8 @@ async def async_setup_entry(
                 PhilipsPetsSeriesStreamUrlSensor(coordinator, home, device, bridge)
             )
         for event_type_str in event_types_str:
+            if not supports_event(device, event_type_str):
+                continue
             sensors.append(
                 PhilipsPetsSeriesEventSensor(coordinator, home, device, event_type_str)
             )

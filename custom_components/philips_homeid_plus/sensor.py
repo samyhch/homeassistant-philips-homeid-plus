@@ -59,6 +59,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up sensors from config entry."""
+    from .transport_sensor import ConnectionHealthSensor
+
+    async_add_entities([ConnectionHealthSensor(entry)])
     if entry.data.get("is_homeid_account"):
         from .account_sensor import async_setup_entry as setup_account
 

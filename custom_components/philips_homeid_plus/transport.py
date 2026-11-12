@@ -4,6 +4,36 @@ from datetime import datetime, timezone
 from .const import DOMAIN
 
 
+def subscribe_transport(hass, entry, listener):
+    """Subscribe to existing health updates, without another device connection."""
+    listeners = hass.data.setdefault(DOMAIN + "_transport_listeners", {})
+    listeners.setdefault(entry.entry_id, set()).add(listener)
+
+    def unsubscribe():
+        callbacks = listeners.get(entry.entry_id)
+        if callbacks is not None:
+            callbacks.discard(listener)
+            if not callbacks:
+                listeners.pop(entry.entry_id, None)
+
+    return unsubscribe
+
+
+def failure_reason(coordinator, transport):
+    """Use typed failures only; never infer expired login from permission denial."""
+    err = getattr(coordinator, "last_exception", None)
+    for _ in range(5):
+        if err is None:
+            break
+        kind = type(err).__name__
+        if kind == "CloudConnectionError":
+            break
+        if kind in {"ConfigEntryAuthFailed", "CloudAuthError"}:
+            return "auth_expired"
+        err = err.__cause__
+    return "local_unreachable" if transport.startswith("local_") else "cloud_update_failed"
+
+
 def transport_kind(data):
     if data.get("is_airpurifier_coap"):
         return "local_coap"
@@ -30,7 +60,7 @@ def track_transport(hass, entry):
         if success is None:
             return
         state["available"] = bool(success)
-        state["reason"] = None if success else "transport_update_failed"
+        state["reason"] = None if success else failure_reason(coordinator, state["transport"])
         if state["transport"] == "local_coap":
             from .repair_helpers import clear_local_issue, report_setup_issue
 
@@ -41,6 +71,8 @@ def track_transport(hass, entry):
         if success:
             stamp = getattr(coordinator, "last_successful_update", None)
             state["last_successful_update"] = stamp or datetime.now(timezone.utc).isoformat()
+        for listener in tuple(hass.data.get(DOMAIN + "_transport_listeners", {}).get(entry.entry_id, ())):
+            listener()
 
     if coordinator is not None:
         updated()

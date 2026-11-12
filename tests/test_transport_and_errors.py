@@ -43,22 +43,35 @@ class HealthTests(unittest.TestCase):
         coordinator = SimpleNamespace(last_update_success=True, async_add_listener=add_listener)
         hass = SimpleNamespace(data={"philips_homeid_plus": {"one": {"coordinator": coordinator}}})
         entry = SimpleNamespace(entry_id="one", data={"is_tuya_pet": True}, async_on_unload=cleanup.append)
+        listener = Mock()
+        remove = self.transport.subscribe_transport(hass, entry, listener)
         self.transport.track_transport(hass, entry)
         good = self.transport.transport_diagnostics(hass, entry)
         self.assertTrue(good["available"])
         self.assertIsNotNone(good["last_successful_update"])
         coordinator.last_update_success = False
+        coordinator.last_exception = type("ConfigEntryAuthFailed", (Exception,), {})("private")
         callbacks[0]()
         bad = self.transport.transport_diagnostics(hass, entry)
         self.assertFalse(bad["available"])
+        self.assertEqual(bad["reason"], "auth_expired")
+        self.assertNotIn("private", str(bad))
         self.assertEqual(bad["last_successful_update"], good["last_successful_update"])
+        self.assertEqual(listener.call_count, 2)
+        remove()
         coordinator.last_update_success = True
         callbacks[0]()
         self.assertIsNone(self.transport.transport_diagnostics(hass, entry)["reason"])
+        self.assertEqual(listener.call_count, 2)
         for callback in cleanup:
             callback()
         unsubscribe.assert_called_once()
         self.assertEqual(self.transport.transport_diagnostics(hass, entry)["reason"], "entry_not_loaded")
+
+    def test_permission_denial_does_not_imply_expired_login(self):
+        coordinator = SimpleNamespace(last_exception=RuntimeError("PERMISSION_DENIED"))
+        self.assertEqual(self.transport.failure_reason(coordinator, "homeid_tuya_cloud"), "cloud_update_failed")
+        self.assertEqual(self.transport.failure_reason(coordinator, "local_coap"), "local_unreachable")
 
     def test_cached_coap_state_is_not_a_successful_live_update(self):
         cleanup = []
